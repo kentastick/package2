@@ -263,9 +263,9 @@ sig_val2 <- function(score_mt, object = data, gene_list = gene_list, non_filter 
 
   score_mt %>% gather(-cluster, key = "signature", value = "score") %>%
     group_by(signature, cluster) %>%
-    summarise(fraction_of_cells = sum(score>0)/n(), score = mean(score)) %>%
+    summarise(fraction_of_cells = sum(score>0)/n(), mean = mean(score)) %>%
     group_by(signature) %>%
-    mutate(max = max(score)) %>%
+    mutate(max = max(mean)) %>%
     mutate(score = score/max)
 }
 
