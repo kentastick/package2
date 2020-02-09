@@ -1,15 +1,3 @@
-
-# data import from data ---------------------------------------------------
-
-
-# package import ----------------------------------------------------------
-
-library(Seurat)
-library(tidyverse)
-library(clipr)
-
-
-
 # data import function ----------------------------------------------------
 
 impdata <- function(name) {
@@ -260,7 +248,7 @@ gm_mean2 = function(x, na.rm=TRUE){
   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
 }
 
-gm_mean2(1:10)
+
 # signature plot ---------------------------------------------------------------------
 
 sig_val2 <- function(score_mt, object = data, gene_list = gene_list, non_filter = F) {
