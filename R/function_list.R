@@ -221,14 +221,16 @@ abpath <- function(path = clipr::read_clip()) {
 # signature value calcuration ---------------------------------------------
 
 #calculate geometric_mean of each cells
-sig_val <- function(gene_list= gene_list, object = data) {
+sig_val <- function(gene_list= gene_list, object = data, func = "gm_mean") {
   mt <- object@meta.data
+  use_func <- switch (func,me = mean, gm_mean = gm_mean1
+  )
   count_mt <- data@assays$RNA@data
   gene_name <- rownames(count_mt)
   gene_list <- purrr::map(gene_list, ~.[. %in% gene_name])
   for(i in seq_along(gene_list)){
     sub_mt <- count_mt[gene_list[[i]],]
-    value <- apply(sub_mt,2, gm_mean1)
+    value <- apply(sub_mt,2, use_func)
     mt[names(gene_list)[i]] <- value
   }
   mt <- mt[names(gene_list)]
@@ -266,7 +268,7 @@ sig_val2 <- function(score_mt, object = data, gene_list = gene_list, non_filter 
     summarise(fraction_of_cells = sum(score>0)/n(), mean = mean(score)) %>%
     group_by(signature) %>%
     mutate(max = max(mean)) %>%
-    mutate(score = score/max)
+    mutate(score = mean/max)
 }
 
 
