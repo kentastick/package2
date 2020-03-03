@@ -225,7 +225,7 @@ sig_val <- function(gene_list= gene_list, object = data, func = "gm_mean") {
   mt <- object@meta.data
   use_func <- switch (func, me = mean, gm_mean = gm_mean1
   )
-  count_mt <- data@assays$RNA@data
+  count_mt <- object@assays$RNA@data
   gene_name <- rownames(count_mt)
   gene_list <- purrr::map(gene_list, ~.[. %in% gene_name])
   for(i in seq_along(gene_list)){
@@ -296,3 +296,161 @@ df_to_list <- function(df) {
   df_list <- map(df_list, ~.[!is.na(.)])
   return(df_list)
 }
+
+
+
+# pick_up_specific cell type ----------------------------------------------
+
+  #execute at seurat_object directory
+#make_subset(data_list = data_list, "HSC_combined", signature = "Mesenchyme", func = "me)
+
+  make_subset <- function(data_list, save_folda, signature, func = "me") {
+
+    #data_list <- data_list[!str_detect(data_list, "posi|blood")] #remove cd45posi(non-parenchyme cells include)
+
+    #dir_name <- data_list %>% str_extract("(?<=\\/)\\S{1,12}(?=.rds)")
+    data_name <- data_list %>% str_extract("\\S{1,20}(?=.rds)")
+    #subset_name <- paste0(dir_name, "_hepato_subset") #hepatocyte extract
+
+    dir_name <- file.path(save_folda, data_name)
+
+    #subset_name <- paste0(data_name, "_hepato_subset") # extract
+    subset_name <- paste0(data_name, signature) # extract
+
+
+    gene_list <- readRDS("~/single_cell/single_cell_project/data/Seurat_object/gene_list.rds")
+
+
+    for(i in seq_along(data_list)){
+
+      if(!dir.exists(dir_name))dir.create(dir_name[i])
+
+      data <- readRDS(data_list[i])
+
+       #signature_plot
+
+      df <- sig_val(gene_list = gene_list, object = data, func = func)
+
+      df2 <- sig_val2(score_mt = df, object = data, gene_list = gene_list)
+
+      signature_plot(df2)
+
+      ggsave(filename = paste0(dir_name[i], "/signature_plot.jpg"))
+
+      #calculate mean value of each signature in whole cells.
+      val_mean <- apply(df, 2, mean)
+
+      #select cluster hepatocyte val over 0.2
+      #hepato_cluster_no <- df2 %>% filter(signature == "Hepatocyte", fraction_of_cells>0.2) %>% pull(cluster)
+
+      use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(no = row_number(-score)) %>% filter(signature == signature, no ==1) %>% pull(cluster)
+
+
+      #mesenchyme_cluster_no <- df2 %>% filter(signature == "Mesenchyme", fraction_of_cells>0.2) %>% pull(cluster)
+
+
+      # if(length(hepato_cluster_no) ==0){
+      #   hepato_cluster_no <- df2 %>% filter(signature == "Hepatocyte", fraction_of_cells>0) %>% pull(cluster)
+      # }
+       if(length(use_cluster_no) ==0){
+         use_cluster_no <- df2 %>% filter(signature == signature, fraction_of_cells>0) %>% pull(cluster)
+
+
+
+      df$cluster <- data@meta.data$seurat_clusters
+
+
+      df %>% rownames_to_column("var" = "id") %>%
+        filter(get(signature)> val_mean[signature], cluster %in% use_cluster_no) %>%
+        pull(id) -> use_id
+
+      #select cells which have hepatocyte value more than 0 and belong to candidate hepatocyte cluster
+      # df %>% rownames_to_column("var" = "id") %>%
+      #   filter(Hepatocyte> 0, cluster %in% hepato_cluster_no) %>%
+      #   pull(id) -> hepato_id2
+
+
+      #make subset_object of hepato_id cells
+      sub_data <- subset(data, cells = use_id)
+      ts(sub_data)
+      ggsave(paste0(dir_name[i], "/subset_plot.jpg"))
+      tmap(object = sub_data, features =  gene_list[["Mesenchyme"]])
+      ggsave(paste0(dir_name[i], "/feature_plot.jpg"))
+      #save as a hepatocyte_subset object
+      saveRDS(sub_data, file = paste0(dir_name[i], "/",subset_name[i],"_", signature, ".rds"))
+
+    }
+
+  }
+
+
+
+
+
+
+# combined method ---------------------------------------------------------
+#execute at each folda for subset ex. HSC_subset
+
+combined <- function(object.list) {
+  object.list <- lapply(X = object.list, FUN = function(x) {
+    x <- NormalizeData(x)
+    x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 2000)
+  })
+
+  object.anchors <- FindIntegrationAnchors(object.list = object.list[c(2,1,3:6)], dims = 1:20)
+  #suceeded by changing object.list order but don't know the reason
+
+  object.combined <- IntegrateData(anchorset = object.anchors, dims = 1:20)
+
+  DefaultAssay(object.combined) <- "integrated"
+
+  # Run the standard workflow for visualization and clustering
+  object.combined <- ScaleData(object.combined, verbose = FALSE)
+  object.combined <- RunPCA(object.combined, npcs = 30, verbose = FALSE)
+
+  # t-SNE and Clustering
+  object.combined <- RunUMAP(object.combined, reduction = "pca", dims = 1:20)
+  object.combined <- RunTSNE(object.combined, reduction = "pca", dims = 1:20)
+  object.combined <- FindNeighbors(object.combined, reduction = "pca", dims = 1:20)
+  object.combined <- FindClusters(object.combined, resolution = 0.5, )
+
+  DimPlot(object.combined, reduction = "umap", label = TRUE)
+
+  ggsave("umap.jpg", device = "jpeg")
+  DimPlot(object.combined, reduction = "tsne", label = TRUE)
+
+  DimPlot(object.combined, reduction = "umap", group.by = "batch")
+
+  saveRDS(object.combined, file = file.path(save_folda,paste0(signature, "_combined.rds")))
+}
+
+
+
+# read all subset data ----------------------------------------------------
+
+make_list <- function() {
+  file_dir <- list.files(pattern = "subset.rds", recursive = T)
+  file_name <- file_dir %>% str_split("/") %>% map(~.[1]) %>% unlist
+  str_split("/") %>% map(~.[1]) %>% unlist
+  object.list <- list()
+  for(i in seq_along(file_dir)){
+    assign(x =file_name[i], readRDS(file_dir[i]))
+    object.list[i] <- get(file_name[i]
+  }
+  return(object.list)
+}
+
+
+
+
+# simple save function: just write object name on the same directo --------
+
+sav <- function(x) {
+  parse_arg <- substitute(x)
+  if(is.symbol(parse_arg)){
+    parse_arg <- deparse(parse_arg)
+    }
+  temp <- get(parse_arg)
+  saveRDS(object = temp, file = paste0(parse_arg, ".rds"))
+}
+
