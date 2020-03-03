@@ -303,7 +303,7 @@ df_to_list <- function(df) {
   #execute at seurat_object directory
 #make_subset(data_list = data_list, "HSC_combined", signature = "Mesenchyme", func = "me)
 
-  make_subset <- function(data_list, save_folda, signature, func = "me") {
+  make_subset <- function(data_list, save_folda, cell_type, func = "me") {
 
     #data_list <- data_list[!str_detect(data_list, "posi|blood")] #remove cd45posi(non-parenchyme cells include)
 
@@ -314,7 +314,7 @@ df_to_list <- function(df) {
     dir_name <- file.path(save_folda, data_name)
 
     #subset_name <- paste0(data_name, "_hepato_subset") # extract
-    subset_name <- paste0(data_name, signature) # extract
+    subset_name <- paste0(data_name, cell_type) # extract
 
 
     gene_list <- readRDS("~/single_cell/single_cell_project/data/Seurat_object/gene_list.rds")
@@ -341,18 +341,13 @@ df_to_list <- function(df) {
 
       #select cluster hepatocyte val over 0.2
       #hepato_cluster_no <- df2 %>% filter(signature == "Hepatocyte", fraction_of_cells>0.2) %>% pull(cluster)
+      use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(no = row_number(-score)) %>% filter(signature == cell_type, no ==1) %>% pull(cluster)
 
-      use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(no = row_number(-score)) %>% filter(signature == signature, no ==1) %>% pull(cluster)
+      if(length(use_cluster_no) ==0){
+         use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
+           group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
+           filter(signature == cell_type, n_clu ==1|n_sig ==1) %>% pull(cluster)
 
-
-      #mesenchyme_cluster_no <- df2 %>% filter(signature == "Mesenchyme", fraction_of_cells>0.2) %>% pull(cluster)
-
-
-      # if(length(hepato_cluster_no) ==0){
-      #   hepato_cluster_no <- df2 %>% filter(signature == "Hepatocyte", fraction_of_cells>0) %>% pull(cluster)
-      # }
-       if(length(use_cluster_no) ==0){
-         use_cluster_no <- df2 %>% filter(signature == signature, fraction_of_cells>0) %>% pull(cluster)
        }
 
 
@@ -360,9 +355,11 @@ df_to_list <- function(df) {
 
 
       df %>% rownames_to_column("var" = "id") %>%
-        filter(get(signature)> val_mean[signature], cluster %in% use_cluster_no) %>%
+        filter(get(cell_type)> val_mean[cell_type], cluster %in% use_cluster_no) %>%
         pull(id) -> use_id
 
+      a <<- use_id
+      b <<- use_cluster_no
       #select cells which have hepatocyte value more than 0 and belong to candidate hepatocyte cluster
       # df %>% rownames_to_column("var" = "id") %>%
       #   filter(Hepatocyte> 0, cluster %in% hepato_cluster_no) %>%
@@ -371,18 +368,16 @@ df_to_list <- function(df) {
 
       #make subset_object of hepato_id cells
       sub_data <- subset(data, cells = use_id)
-      ts(sub_data)
+      ts(object = sub_data)
       ggsave(paste0(dir_name[i], "/subset_plot.jpg"))
       tmap(object = sub_data, features =  gene_list[["Mesenchyme"]])
       ggsave(paste0(dir_name[i], "/feature_plot.jpg"))
       #save as a hepatocyte_subset object
-      saveRDS(sub_data, file = paste0(dir_name[i], "/",subset_name[i],"_", signature, ".rds"))
+      saveRDS(sub_data, file = paste0(dir_name[i], "/",subset_name[i],"_", cell_type, ".rds"))
 
     }
 
   }
-
-
 
 
 
@@ -420,7 +415,7 @@ combined <- function(object.list) {
 
   DimPlot(object.combined, reduction = "umap", group.by = "batch")
 
-  saveRDS(object.combined, file = file.path(save_folda,paste0(signature, "_combined.rds")))
+  saveRDS(object.combined, file = file.path(save_folda,paste0(cell_type, "_combined.rds")))
 }
 
 
@@ -440,8 +435,6 @@ make_list <- function() {
 }
 
 
-
-
 # simple save function: just write object name on the same directo --------
 
 sav <- function(x) {
@@ -452,4 +445,3 @@ sav <- function(x) {
   temp <- get(parse_arg)
   saveRDS(object = temp, file = paste0(parse_arg, ".rds"))
 }
-
