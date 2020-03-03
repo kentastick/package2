@@ -223,7 +223,7 @@ abpath <- function(path = clipr::read_clip()) {
 #calculate geometric_mean of each cells
 sig_val <- function(gene_list= gene_list, object = data, func = "gm_mean") {
   mt <- object@meta.data
-  use_func <- switch (func,me = mean, gm_mean = gm_mean1
+  use_func <- switch (func, me = mean, gm_mean = gm_mean1
   )
   count_mt <- data@assays$RNA@data
   gene_name <- rownames(count_mt)
