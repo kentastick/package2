@@ -223,8 +223,7 @@ abpath <- function(path = clipr::read_clip()) {
 #calculate geometric_mean of each cells
 sig_val <- function(gene_list= gene_list, object = data, func = "gm_mean") {
   mt <- object@meta.data
-  use_func <- switch (func, me = mean, gm_mean = gm_mean1
-  )
+  use_func <- switch (func, me = mean, gm_mean = gm_mean1)
   count_mt <- object@assays$RNA@data
   gene_name <- rownames(count_mt)
   gene_list <- purrr::map(gene_list, ~.[. %in% gene_name])
@@ -354,7 +353,7 @@ df_to_list <- function(df) {
       # }
        if(length(use_cluster_no) ==0){
          use_cluster_no <- df2 %>% filter(signature == signature, fraction_of_cells>0) %>% pull(cluster)
-
+       }
 
 
       df$cluster <- data@meta.data$seurat_clusters
