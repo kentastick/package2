@@ -435,7 +435,7 @@ make_list <- function() {
   object.list <- list()
   for(i in seq_along(file_dir)){
     assign(x =file_name[i], readRDS(file_dir[i]))
-    object.list[i] <- get(file_name[i]
+    object.list[i] <- get(file_name[i])
   }
   return(object.list)
 }
