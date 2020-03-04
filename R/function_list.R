@@ -314,7 +314,7 @@ df_to_list <- function(df) {
     dir_name <- file.path(save_folda, data_name)
 
     #subset_name <- paste0(data_name, "_hepato_subset") # extract
-    subset_name <- paste0(data_name, cell_type) # extract
+    subset_name <- paste0(data_name,"_", cell_type) # extract
 
 
     gene_list <- readRDS("~/single_cell/single_cell_project/data/Seurat_object/gene_list.rds")
@@ -322,9 +322,14 @@ df_to_list <- function(df) {
 
     for(i in seq_along(data_list)){
 
-      if(!dir.exists(dir_name))dir.create(dir_name[i])
+      cat(data_name[i], "executing\n")
+
+      if(!dir.exists(dir_name[i])){
+        dir.create(dir_name[i])
+      }else next
 
       data <- readRDS(data_list[i])
+      if(class(data) != "Seurat") next
 
        #signature_plot
 
@@ -334,7 +339,7 @@ df_to_list <- function(df) {
 
       signature_plot(df2)
 
-      ggsave(filename = paste0(dir_name[i], "/signature_plot.jpg"))
+      try(ggsave(filename = paste0(dir_name[i], "/signature_plot.jpg")))
 
       #calculate mean value of each signature in whole cells.
       val_mean <- apply(df, 2, mean)
@@ -369,11 +374,12 @@ df_to_list <- function(df) {
       #make subset_object of hepato_id cells
       sub_data <- subset(data, cells = use_id)
       ts(object = sub_data)
-      ggsave(paste0(dir_name[i], "/subset_plot.jpg"))
+      try(ggsave(paste0(dir_name[i], "/subset_plot.jpg")))
       tmap(object = sub_data, features =  gene_list[["Mesenchyme"]])
-      ggsave(paste0(dir_name[i], "/feature_plot.jpg"))
+      try(ggsave(paste0(dir_name[i], "/feature_plot.jpg")))
       #save as a hepatocyte_subset object
-      saveRDS(sub_data, file = paste0(dir_name[i], "/",subset_name[i],"_", cell_type, ".rds"))
+      saveRDS(sub_data, file = paste0(dir_name[i], "/",subset_name[i],".rds"))
+
 
     }
 
@@ -385,13 +391,13 @@ df_to_list <- function(df) {
 # combined method ---------------------------------------------------------
 #execute at each folda for subset ex. HSC_subset
 
-combined <- function(object.list) {
+combined <- function(object.list, k.filter = 200) {
   object.list <- lapply(X = object.list, FUN = function(x) {
     x <- NormalizeData(x)
     x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 2000)
   })
 
-  object.anchors <- FindIntegrationAnchors(object.list = object.list[c(2,1,3:6)], dims = 1:20)
+  object.anchors <- FindIntegrationAnchors(object.list = object.list,k.filter = k.filter, dims = 1:20)
   #suceeded by changing object.list order but don't know the reason
 
   object.combined <- IntegrateData(anchorset = object.anchors, dims = 1:20)
@@ -422,10 +428,10 @@ combined <- function(object.list) {
 
 # read all subset data ----------------------------------------------------
 
-make_list <- function() {
-  file_dir <- list.files(pattern = "subset.rds", recursive = T)
+make_list <- function(cell_type) {
+  file_dir <- list.files(pattern = paste0(cell_type,".rds"), recursive = T)
+
   file_name <- file_dir %>% str_split("/") %>% map(~.[1]) %>% unlist
-  str_split("/") %>% map(~.[1]) %>% unlist
   object.list <- list()
   for(i in seq_along(file_dir)){
     assign(x =file_name[i], readRDS(file_dir[i]))
