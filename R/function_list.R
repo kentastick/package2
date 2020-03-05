@@ -252,8 +252,11 @@ gm_mean2 = function(x, na.rm=TRUE){
 
 # signature plot ---------------------------------------------------------------------
 
-sig_val2 <- function(score_mt, object = data, gene_list = gene_list, non_filter = F) {
-  if(!non_filter) {val_mean <- apply(score_mt, 2, mean) # signature mean
+#make df of each cluster's signature score: each_value/max_value, fraction_rate: expressed_cell(>0)/total_cells
+
+sig_val2 <- function(score_mt, object = data, gene_list = gene_list, filter = F) {
+  if(filter) {
+  val_mean <- apply(score_mt, 2, mean) # signature mean
   for(i in seq_along(gene_list)){
     temp <- score_mt[[names(gene_list)[i]]]
     score_mt[[names(gene_list)[i]]] <- if_else(temp> val_mean[[i]], temp, 0)
@@ -274,9 +277,11 @@ sig_val2 <- function(score_mt, object = data, gene_list = gene_list, non_filter 
 
 
 
-signature_plot <- function(score_mt, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
-
-    score_mt %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
+signature_plot <- function(object = data, gene_list = NULL, func = "me", non_filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+    if(is.null(gene_list)) gene_list <- readRDS("~/single_cell/single_cell_project/data/Seurat_object/gene_list.rds")
+    df <- sig_val(gene_list = gene_list, func = func, object = object)
+    df <- sig_val2(score_mt = df, gene_list = gene_list, filter = filter)
+    df %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
                            values = c(1.0,0.7,0.6,0.4,0.3,0))
 }
@@ -347,6 +352,10 @@ df_to_list <- function(df) {
       #select cluster hepatocyte val over 0.2
       #hepato_cluster_no <- df2 %>% filter(signature == "Hepatocyte", fraction_of_cells>0.2) %>% pull(cluster)
       use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(no = row_number(-score)) %>% filter(signature == cell_type, no ==1) %>% pull(cluster)
+      # use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
+      #   group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
+      #   filter(signature == cell_type, n_clu ==1|n_sig ==1) %>% pull(cluster)
+      #
 
       if(length(use_cluster_no) ==0){
          use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
@@ -391,7 +400,7 @@ df_to_list <- function(df) {
 # combined method ---------------------------------------------------------
 #execute at each folda for subset ex. HSC_subset
 
-combined <- function(object.list, k.filter = 200) {
+combined <- function(object.list,cell_type = "subset", k.filter = 200) {
   object.list <- lapply(X = object.list, FUN = function(x) {
     x <- NormalizeData(x)
     x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 2000)
@@ -421,7 +430,8 @@ combined <- function(object.list, k.filter = 200) {
 
   DimPlot(object.combined, reduction = "umap", group.by = "batch")
 
-  saveRDS(object.combined, file = file.path(save_folda,paste0(cell_type, "_combined.rds")))
+  saveRDS(object.combined, file = paste0(cell_type, "_combined.rds"))
+  return(object.combined)
 }
 
 
