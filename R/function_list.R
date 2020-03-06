@@ -255,7 +255,7 @@ gm_mean2 = function(x, na.rm=TRUE){
 #make df of each cluster's signature score: each_value/max_value, fraction_rate: expressed_cell(>0)/total_cells
 
 sig_val2 <- function(score_mt, object = data, gene_list = gene_list, filter = F) {
-  if(filter) {
+  if(filter){
   val_mean <- apply(score_mt, 2, mean) # signature mean
   for(i in seq_along(gene_list)){
     temp <- score_mt[[names(gene_list)[i]]]
@@ -274,10 +274,16 @@ sig_val2 <- function(score_mt, object = data, gene_list = gene_list, filter = F)
 }
 
 
+#internal function in make_subset
+signature_plot_ <- function(mat_value, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+  mat_value %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
+    scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+                           values = c(1.0,0.7,0.6,0.4,0.3,0))
+}
 
 
-
-signature_plot <- function(object = data, gene_list = NULL, func = "me", non_filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+#conduct through calculation in sig_val1, 2 to plot
+signature_plot <- function(object = data, gene_list = NULL, func = "me", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
     if(is.null(gene_list)) gene_list <- readRDS("~/single_cell/single_cell_project/data/Seurat_object/gene_list.rds")
     df <- sig_val(gene_list = gene_list, func = func, object = object)
     df <- sig_val2(score_mt = df, gene_list = gene_list, filter = filter)
@@ -342,7 +348,7 @@ df_to_list <- function(df) {
 
       df2 <- sig_val2(score_mt = df, object = data, gene_list = gene_list)
 
-      signature_plot(df2)
+      signature_plot_(mat_value = df2)
 
       try(ggsave(filename = paste0(dir_name[i], "/signature_plot.jpg")))
 
@@ -368,17 +374,19 @@ df_to_list <- function(df) {
       df$cluster <- data@meta.data$seurat_clusters
 
 
-      df %>% rownames_to_column("var" = "id") %>%
+      use_id <- df %>% rownames_to_column("var" = "id") %>%
         filter(get(cell_type)> val_mean[cell_type], cluster %in% use_cluster_no) %>%
-        pull(id) -> use_id
+        pull(id)
 
-      a <<- use_id
-      b <<- use_cluster_no
-      #select cells which have hepatocyte value more than 0 and belong to candidate hepatocyte cluster
-      # df %>% rownames_to_column("var" = "id") %>%
-      #   filter(Hepatocyte> 0, cluster %in% hepato_cluster_no) %>%
-      #   pull(id) -> hepato_id2
-
+      if(length(use_id)<100){
+        use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
+          group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
+          filter(signature == cell_type, n_clu %in% c(1,2)|n_sig %in% c(1,2)) %>% pull(cluster)
+        use_id <- df %>% rownames_to_column("var" = "id") %>%
+          filter(get(cell_type)> val_mean[cell_type], cluster %in% use_cluster_no) %>%
+          pull(id)
+      }
+      cat("number of cell is ", length(use_id), "\n")
 
       #make subset_object of hepato_id cells
       sub_data <- subset(data, cells = use_id)
@@ -460,4 +468,13 @@ sav <- function(x) {
     }
   temp <- get(parse_arg)
   saveRDS(object = temp, file = paste0(parse_arg, ".rds"))
+}
+
+
+
+# get gene_list -----------------------------------------------------------
+
+get_liver_marker <- function(n = 20) {
+  liver_marker_list <- readRDS("~/single_cell/single_cell_project/data/GSE115469/liver_marker_list.rds")
+  liver_marker_list <- map(liver_marker_list, ~head(., n))
 }
