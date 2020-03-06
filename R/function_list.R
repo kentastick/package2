@@ -478,3 +478,13 @@ get_liver_marker <- function(n = 20) {
   liver_marker_list <- readRDS("~/single_cell/single_cell_project/data/GSE115469/liver_marker_list.rds")
   liver_marker_list <- map(liver_marker_list, ~head(., n))
 }
+
+
+
+# version up package2 -----------------------------------------------------
+##
+remotes::install_github("kentastick/package2")
+detach("package:package2", unload=TRUE)
+library("package2", lib.loc="~/R/win-library/3.6")
+
+
