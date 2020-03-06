@@ -303,9 +303,9 @@ signature_plot_ <- function(mat_value, use.color = c("#0099FF", "#FAF5F5", "#E32
 
 
 #conduct through calculation in sig_val1, 2 to plot
-signature_plot <- function(object = data, marker = "norm", gene_list = NULL, func = "me", n_liver_marker = 20,filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
-    df <- sig_val(gene_list = gene_list, func = func, object = object)
-    df <- sig_val2(score_mt = df, gene_list = gene_list, filter = filter)
+signature_plot <- function(object = data, marker = "norm", gene_list = NULL, use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
+    df <- sig_val2(score_mt = df)
     df %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
                            values = c(1.0,0.7,0.6,0.4,0.3,0))
