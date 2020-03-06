@@ -221,7 +221,7 @@ abpath <- function(path = clipr::read_clip()) {
 # signature value calcuration ---------------------------------------------
 
 #calculate geometric_mean of each cells
-sig_val <- function(object = data, marker = "gene_list", use_func = "gm_mean", filter = F) {
+sig_val <- function(object = data, marker = "gene_list", use_func = "mean", filter = F) {
   gene_list <- get_list(marker)
   mt <- object@meta.data
   use_func <- switch (use_func, "mean" = mean, "gm_mean" = gm_mean1)
@@ -236,12 +236,13 @@ sig_val <- function(object = data, marker = "gene_list", use_func = "gm_mean", f
   mt <- mt[names(gene_list)]
 
   if(filter){
-    val_mean <- apply(mt, 2, )
+    val_mean <- apply(mt, 2, mean)
     for(i in seq_along(gene_list))
       temp <- df[[names(gene_list)[i]]]
     mt[[names(gene_list)[i]]] <- if_else(temp> val_mean[[i]], temp, 0)
   }
   mt$cluster <- object$seurat_clusters
+  mt$id <- rownames(mt)
   return(mt)
 }
 
