@@ -221,7 +221,10 @@ abpath <- function(path = clipr::read_clip()) {
 # signature value calcuration ---------------------------------------------
 
 #calculate geometric_mean of each cells
-sig_val <- function(gene_list= gene_list, object = data, func = "gm_mean") {
+sig_val <- function(gene_list= NULL, object = data, func = "gm_mean") {
+  if(is.null(gene_list)){
+    gene_list <- readRDS("~/single_cell/single_cell_project/gene_list/gene_list.rds")
+  }
   mt <- object@meta.data
   use_func <- switch (func, me = mean, gm_mean = gm_mean1)
   count_mt <- object@assays$RNA@data
@@ -283,8 +286,10 @@ signature_plot_ <- function(mat_value, use.color = c("#0099FF", "#FAF5F5", "#E32
 
 
 #conduct through calculation in sig_val1, 2 to plot
-signature_plot <- function(object = data, gene_list = NULL, func = "me", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
-    if(is.null(gene_list)) gene_list <- readRDS("~/single_cell/single_cell_project/data/Seurat_object/gene_list.rds")
+signature_plot <- function(object = data, marker = "norm", gene_list = NULL, func = "me", n_liver_marker = 20,filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+    if(is.null(gene_list)){gene_list <- switch(marker,
+                          "norm" = readRDS("~/single_cell/single_cell_project/gene_list/gene_list.rds"),
+                          "macpoland" = get_liver_marker(n = n_liver_marker))}
     df <- sig_val(gene_list = gene_list, func = func, object = object)
     df <- sig_val2(score_mt = df, gene_list = gene_list, filter = filter)
     df %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
@@ -328,7 +333,7 @@ df_to_list <- function(df) {
     subset_name <- paste0(data_name,"_", cell_type) # extract
 
 
-    gene_list <- readRDS("~/single_cell/single_cell_project/data/Seurat_object/gene_list.rds")
+    gene_list <- readRDS("~/single_cell/single_cell_project/gene_list/gene_list.rds.rds")
 
 
     for(i in seq_along(data_list)){
@@ -475,16 +480,18 @@ sav <- function(x) {
 # get gene_list -----------------------------------------------------------
 
 get_liver_marker <- function(n = 20) {
-  liver_marker_list <- readRDS("~/single_cell/single_cell_project/data/GSE115469/liver_marker_list.rds")
+  liver_marker_list <- readRDS("~/single_cell/single_cell_project/gene_list/liver_marker_list.rds.rds")
   liver_marker_list <- map(liver_marker_list, ~head(., n))
 }
 
 
 
 # version up package2 -----------------------------------------------------
-##
-remotes::install_github("kentastick/package2")
-detach("package:package2", unload=TRUE)
-library("package2", lib.loc="~/R/win-library/3.6")
+###
+restart <- function(remotes, install_github) {
+  remotes::install_github("kentastick/package2")
+  detach("package:package2", unload=TRUE)
+  library("package2", lib.loc="~/R/win-library/3.6")
+}
 
 
