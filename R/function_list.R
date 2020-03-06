@@ -221,12 +221,10 @@ abpath <- function(path = clipr::read_clip()) {
 # signature value calcuration ---------------------------------------------
 
 #calculate geometric_mean of each cells
-sig_val <- function(gene_list= NULL, object = data, func = "gm_mean") {
-  if(is.null(gene_list)){
-    gene_list <- readRDS("~/single_cell/single_cell_project/gene_list/gene_list.rds")
-  }
+sig_val <- function(object = data, marker = "gene_list", use_func = "gm_mean", filter = F) {
+  gene_list <- get_list(marker)
   mt <- object@meta.data
-  use_func <- switch (func, me = mean, gm_mean = gm_mean1)
+  use_func <- switch (use_func, "mean" = mean, "gm_mean" = gm_mean1)
   count_mt <- object@assays$RNA@data
   gene_name <- rownames(count_mt)
   gene_list <- purrr::map(gene_list, ~.[. %in% gene_name])
@@ -236,10 +234,27 @@ sig_val <- function(gene_list= NULL, object = data, func = "gm_mean") {
     mt[names(gene_list)[i]] <- value
   }
   mt <- mt[names(gene_list)]
+
+  if(filter){
+    val_mean <- apply(mt, 2, )
+    for(i in seq_along(gene_list))
+      temp <- df[[names(gene_list)[i]]]
+    mt[[names(gene_list)[i]]] <- if_else(temp> val_mean[[i]], temp, 0)
+  }
+  mt$cluster <- object$seurat_clusters
   return(mt)
 }
 
-
+# #sig_val + filter
+# filter_cell <- function(marker = "gene_list",  use_func = "mean", object = data) {
+#   gene_list <- get_list(marker = marker)
+#   df <- sig_val(marker = marker, use_func = use_func, object = object)
+#   val_mean <- apply(df, 2, mean)
+#   for(i in seq_along(gene_list))
+#     temp <- df[[names(gene_list)[i]]]
+#   df[[names(gene_list)[i]]] <- if_else(temp> val_mean[[i]], temp, 0)
+#   return(df)
+# }
 
 
 # geometric mean ----------------------------------------------------------
@@ -257,15 +272,16 @@ gm_mean2 = function(x, na.rm=TRUE){
 
 #make df of each cluster's signature score: each_value/max_value, fraction_rate: expressed_cell(>0)/total_cells
 
-sig_val2 <- function(score_mt, object = data, gene_list = gene_list, filter = F) {
-  if(filter){
-  val_mean <- apply(score_mt, 2, mean) # signature mean
-  for(i in seq_along(gene_list)){
-    temp <- score_mt[[names(gene_list)[i]]]
-    score_mt[[names(gene_list)[i]]] <- if_else(temp> val_mean[[i]], temp, 0)
-  }
-}
-  score_mt$cluster <- object@meta.data %>% .$seurat_clusters
+sig_val2 <- function(score_mt) {
+#  gene_list <- get_list(marker = marker)
+#  if(filter){
+#   val_mean <- apply(score_mt, 2, mean) # signature mean
+#   for(i in seq_along(gene_list)){
+#     temp <- score_mt[[names(gene_list)[i]]]
+#     score_mt[[names(gene_list)[i]]] <- if_else(temp> val_mean[[i]], temp, 0)
+#   }
+# }
+#  score_mt$cluster <- object@meta.data %>% .$seurat_clusters
 
 
   score_mt %>% gather(-cluster, key = "signature", value = "score") %>%
@@ -287,9 +303,7 @@ signature_plot_ <- function(mat_value, use.color = c("#0099FF", "#FAF5F5", "#E32
 
 #conduct through calculation in sig_val1, 2 to plot
 signature_plot <- function(object = data, marker = "norm", gene_list = NULL, func = "me", n_liver_marker = 20,filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
-    if(is.null(gene_list)){gene_list <- switch(marker,
-                          "norm" = readRDS("~/single_cell/single_cell_project/gene_list/gene_list.rds"),
-                          "macpoland" = get_liver_marker(n = n_liver_marker))}
+    if(is.nugene_list <-
     df <- sig_val(gene_list = gene_list, func = func, object = object)
     df <- sig_val2(score_mt = df, gene_list = gene_list, filter = filter)
     df %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
@@ -319,7 +333,7 @@ df_to_list <- function(df) {
   #execute at seurat_object directory
 #make_subset(data_list = data_list, "HSC_combined", signature = "Mesenchyme", func = "me)
 
-  make_subset <- function(data_list, save_folda, cell_type, func = "me") {
+  make_subset <- function(data_list, save_folda, cell_type, func = "me", marker = "gene_list") {
 
     #data_list <- data_list[!str_detect(data_list, "posi|blood")] #remove cd45posi(non-parenchyme cells include)
 
@@ -332,8 +346,7 @@ df_to_list <- function(df) {
     #subset_name <- paste0(data_name, "_hepato_subset") # extract
     subset_name <- paste0(data_name,"_", cell_type) # extract
 
-
-    gene_list <- readRDS("~/single_cell/single_cell_project/gene_list/gene_list.rds.rds")
+    gene_list <- get_list(marker = marker)
 
 
     for(i in seq_along(data_list)){
@@ -349,7 +362,7 @@ df_to_list <- function(df) {
 
        #signature_plot
 
-      df <- sig_val(gene_list = gene_list, object = data, func = func)
+      df <- sig_val(marker = marker, object = data, use_func = use_func)
 
       df2 <- sig_val2(score_mt = df, object = data, gene_list = gene_list)
 
@@ -486,6 +499,24 @@ get_liver_marker <- function(n = 20) {
 
 
 
+get_list <- function(marker) {
+  get_list <- readRDS(paste0("~/single_cell/single_cell_project/gene_list/", marker,".rds"))
+}
+
+get_list_name <- function() {
+  list.files(path = "~/single_cell/single_cell_project/gene_list/")
+}
+
+
+
+get_list_ <- function(marker, n_liver_marker) {
+  gene_list <- switch(marker,
+                      "gene_list" = readRDS("~/single_cell/single_cell_project/gene_list/gene_list.rds"),
+                      "original_list" = readRDS("~/single_cell/single_cell_project/gene_list/original_gene_list.rds"),
+                      "macpoland" = get_liver_marker(n = n_liver_marker))
+  return(gene_list)
+}
+
 # version up package2 -----------------------------------------------------
 ###
 restart <- function(remotes, install_github) {
@@ -494,4 +525,7 @@ restart <- function(remotes, install_github) {
   library("package2", lib.loc="~/R/win-library/3.6")
 }
 
+
+
+# filter_cell -------------------------------------------------------------
 
