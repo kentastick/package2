@@ -303,7 +303,7 @@ signature_plot_ <- function(mat_value, use.color = c("#0099FF", "#FAF5F5", "#E32
 
 
 #conduct through calculation in sig_val1, 2 to plot
-signature_plot <- function(object = data, marker = "norm", gene_list = NULL, use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+signature_plot <- function(object = data, marker = "gene_list", gene_list = NULL, use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
     df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
     df <- sig_val2(score_mt = df)
     df %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
