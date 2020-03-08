@@ -238,11 +238,11 @@ sig_val <- function(object = data, marker = "gene_list", use_func = "mean", filt
   if(filter){
     val_mean <- apply(mt, 2, mean)
     for(i in seq_along(gene_list))
-      temp <- df[[names(gene_list)[i]]]
+      temp <- mt[[names(gene_list)[i]]]
     mt[[names(gene_list)[i]]] <- if_else(temp> val_mean[[i]], temp, 0)
   }
   mt$cluster <- object$seurat_clusters
-  mt$id <- rownames(mt)
+  mt$cell_id <- rownames(mt)
   return(mt)
 }
 
@@ -285,7 +285,7 @@ sig_val2 <- function(score_mt) {
 #  score_mt$cluster <- object@meta.data %>% .$seurat_clusters
 
 
-  score_mt %>% gather(-cluster, key = "signature", value = "score") %>%
+  score_mt %>% gather(-cluster, -cell_id, key = "signature", value = "score") %>%
     group_by(signature, cluster) %>%
     summarise(fraction_of_cells = sum(score>0)/n(), mean = mean(score)) %>%
     group_by(signature) %>%
@@ -303,7 +303,7 @@ signature_plot_ <- function(mat_value, use.color = c("#0099FF", "#FAF5F5", "#E32
 
 
 #conduct through calculation in sig_val1, 2 to plot
-signature_plot <- function(object = data, marker = "gene_list", gene_list = NULL, use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+signature_plot <- function(object = data, marker = "gene_list", use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
     df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
     df <- sig_val2(score_mt = df)
     df %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
@@ -333,7 +333,7 @@ df_to_list <- function(df) {
   #execute at seurat_object directory
 #make_subset(data_list = data_list, "HSC_combined", signature = "Mesenchyme", func = "me)
 
-  make_subset <- function(data_list, save_folda, cell_type, func = "me", marker = "gene_list") {
+  make_subset <- function(data_list, save_folda, cell_type, use_func = "me", marker = "gene_list") {
 
     #data_list <- data_list[!str_detect(data_list, "posi|blood")] #remove cd45posi(non-parenchyme cells include)
 
@@ -348,7 +348,7 @@ df_to_list <- function(df) {
 
     gene_list <- get_list(marker = marker)
 
-
+    cell_num <- vector()
     for(i in seq_along(data_list)){
 
       cat(data_name[i], "executing\n")
@@ -357,63 +357,67 @@ df_to_list <- function(df) {
         dir.create(dir_name[i])
       }else next
 
-      data <- readRDS(data_list[i])
+      if(!data_name[i] %in% ls(envir = globalenv())) data <- readRDS(data_list[i])
+
       if(class(data) != "Seurat") next
 
        #signature_plot
 
       df <- sig_val(marker = marker, object = data, use_func = use_func)
 
-      df2 <- sig_val2(score_mt = df, object = data, gene_list = gene_list)
+      df2 <- sig_val2(score_mt = df)
 
       signature_plot_(mat_value = df2)
 
       try(ggsave(filename = paste0(dir_name[i], "/signature_plot.jpg")))
 
       #calculate mean value of each signature in whole cells.
-      val_mean <- apply(df, 2, mean)
+      val_mean <- apply(df[names(gene_list)], 2, mean)
 
       #select cluster hepatocyte val over 0.2
       #hepato_cluster_no <- df2 %>% filter(signature == "Hepatocyte", fraction_of_cells>0.2) %>% pull(cluster)
-      use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(no = row_number(-score)) %>% filter(signature == cell_type, no ==1) %>% pull(cluster)
+      #use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(no = row_number(-score)) %>% filter(signature == cell_type, no ==1) %>% pull(cluster)
       # use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
       #   group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
       #   filter(signature == cell_type, n_clu ==1|n_sig ==1) %>% pull(cluster)
       #
 
-      if(length(use_cluster_no) ==0){
-         use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
-           group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
-           filter(signature == cell_type, n_clu ==1|n_sig ==1) %>% pull(cluster)
+       use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
+            group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
+            filter(signature == cell_type, n_clu ==1|n_sig ==1) %>% pull(cluster)
 
-       }
-
-
-      df$cluster <- data@meta.data$seurat_clusters
-
-
-      use_id <- df %>% rownames_to_column("var" = "id") %>%
-        filter(get(cell_type)> val_mean[cell_type], cluster %in% use_cluster_no) %>%
-        pull(id)
+       use_id <- df %>% filter(get(cell_type)> val_mean[cell_type], cluster %in% use_cluster_no) %>%
+         pull(cell_id)
 
       if(length(use_id)<100){
         use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
           group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
-          filter(signature == cell_type, n_clu %in% c(1,2)|n_sig %in% c(1,2)) %>% pull(cluster)
-        use_id <- df %>% rownames_to_column("var" = "id") %>%
-          filter(get(cell_type)> val_mean[cell_type], cluster %in% use_cluster_no) %>%
-          pull(id)
+          filter(signature == cell_type, n_clu %in% c(1,2)|n_sig %in% c(1)) %>% pull(cluster)
+        use_id <- df %>% filter(get(cell_type)> val_mean[cell_type], cluster %in% use_cluster_no) %>%
+          pull(cell_id)
+
       }
+
+
       cat("number of cell is ", length(use_id), "\n")
+      cell_num[i] <- length(use_id)
+      names(cell_num)[i] <- data_name[i]
+      if(length(use_id)< 20){
+        cat("cell number is too small. skip procedure\n")
+        next
+      }
 
       #make subset_object of hepato_id cells
       sub_data <- subset(data, cells = use_id)
       ts(object = sub_data)
       try(ggsave(paste0(dir_name[i], "/subset_plot.jpg")))
-      tmap(object = sub_data, features =  gene_list[["Mesenchyme"]])
-      try(ggsave(paste0(dir_name[i], "/feature_plot.jpg")))
+      tmap(object = sub_data, features =  gene_list[[cell_type]])
+      try(ggsave(paste0(dir_name[i], "/feature_plot.jpg"), width = 20, height =20, units =  "cm" ))
       #save as a hepatocyte_subset object
+
       saveRDS(sub_data, file = paste0(dir_name[i], "/",subset_name[i],".rds"))
+      assign("cell_num", cell_num,envir = globalenv() )
+      savRDS
 
 
     }
@@ -455,7 +459,7 @@ combined <- function(object.list,cell_type = "subset", k.filter = 200) {
   DimPlot(object.combined, reduction = "tsne", label = TRUE)
 
   DimPlot(object.combined, reduction = "umap", group.by = "batch")
-
+  object.combined$id <- colnames(object.combined)
   saveRDS(object.combined, file = paste0(cell_type, "_combined.rds"))
   return(object.combined)
 }
@@ -506,14 +510,14 @@ get_liver_marker <- function(n = 20) {
 
 
 save_list <- function(marker) {
-
-  saveRDS(marker, paste0("~/single_cell/single_cell_project/gene_list/", marker, ".rds"))
+  parse_name <- deparse(substitute(marker))
+  saveRDS(marker, paste0("~/single_cell/single_cell_project/gene_list/", parse_name , ".rds"))
 }
 
 
-get_list <- function(marker) {
+get_list <- function(marker, output = T) {
   get_list <- readRDS(paste0("~/single_cell/single_cell_project/gene_list/", marker,".rds"))
-  assign(x = marker, value  = get_list, envir =globalenv())
+  if(output)assign(x = marker, value  = get_list, envir =globalenv())
 }
 
 get_list_name <- function() {
@@ -587,5 +591,45 @@ diff_test <- function(x, min.pct = 0.15, min.diff.pct = 0.1, logfc.threshold = 0
   }
   return(marker)
 }
+
+
+
+
+# plot signature scpre ----------------------------------------------------
+
+
+feature_sig <- function(marker, object = data) {
+  df <- sig_val(marker = marker)
+  df <- df %>% dplyr::select(-cluster, -cell_id)
+  object@meta.data <- object@meta.data %>% rownames_to_column(var = "temp") %>%
+    bind_cols(df[colnames(df)]) %>% column_to_rownames(var = "temp")
+  ump(object = object, features = colnames(df))
+}
+
+
+
+# add meta.data -----------------------------------------------------------
+
+
+add_meta <- function(df, object = data) {
+  object@meta.data <- object@meta.data %>% rownames_to_column(var = "temp") %>%
+    bind_cols(df[colname(df)]) %>% column_to_rownames(var = "temp")
+  return(object)
+}
+
+
+
+# cell_origin bar plot ----------------------------------------------------
+
+bar_origin <- function(meta_data, object= data) {
+  object@meta.data %>% dplyr::select(seurat_clusters, meta_data) %>%
+    pivot_longer(meta_data,values_to = "batch") %>%
+    ggplot(aes(seurat_clusters, fill = batch)) + geom_bar(position = "fill")
+}
+
+
+
+
+
 
 
