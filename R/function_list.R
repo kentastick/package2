@@ -479,16 +479,23 @@ make_list <- function(cell_type) {
 
 # simple save function: just write object name on the same directo --------
 
+# sav <- function(x) {
+#   parse_arg <- substitute(x)
+#   if(is.symbol(parse_arg)){
+#     parse_arg <- deparse(parse_arg)
+#     }
+#   temp <- get(parse_arg)
+#   saveRDS(object = temp, file = paste0(parse_arg, ".rds"))
+# }
+
 sav <- function(x) {
   parse_arg <- substitute(x)
-  if(is.symbol(parse_arg)){
-    parse_arg <- deparse(parse_arg)
-    }
-  temp <- get(parse_arg)
-  saveRDS(object = temp, file = paste0(parse_arg, ".rds"))
+  saveRDS(object = x, file = paste0(deparse(parse_arg), ".rds"))
 }
 
-
+af <- function(x) {
+  log(x +1)
+}
 
 # get gene_list -----------------------------------------------------------
 
@@ -498,9 +505,15 @@ get_liver_marker <- function(n = 20) {
 }
 
 
+save_list <- function(marker) {
+
+  saveRDS(marker, paste0("~/single_cell/single_cell_project/gene_list/", marker, ".rds"))
+}
+
 
 get_list <- function(marker) {
   get_list <- readRDS(paste0("~/single_cell/single_cell_project/gene_list/", marker,".rds"))
+  assign(x = marker, value  = get_list, envir =globalenv())
 }
 
 get_list_name <- function() {
@@ -517,6 +530,22 @@ get_list_ <- function(marker, n_liver_marker) {
   return(gene_list)
 }
 
+
+#list to df
+
+# signature = data.frame(signature = names(gene_list))
+# temp <- vector()
+# for(i in seq_along(gene_list)){
+#   temp[i] <- gene_list[i]
+# }
+#
+# signature$gene <- temp
+
+
+
+
+
+
 # version up package2 -----------------------------------------------------
 ###
 restart <- function(remotes, install_github) {
@@ -527,5 +556,36 @@ restart <- function(remotes, install_github) {
 
 
 
-# filter_cell -------------------------------------------------------------
+# proportion plot -------------------------------------------------------------
+
+pplot <- function(x) {
+  #a <- deparse(substitute(x))
+  data@meta.data %>% dplyr::select(seurat_clusters, x) %>%
+    pivot_longer(x,values_to = "batch") %>%
+    ggplot(aes(seurat_clusters, fill = batch)) + geom_bar(position = "fill")
+}
+
+
+
+# differential gene expression analysis within same sample ----------------
+
+diff_test <- function(x, min.pct = 0.15, min.diff.pct = 0.1, logfc.threshold = 0.25, ...) {
+  x <- substitute(x)
+  if(!is.character(x)){
+    x <- deparse(x)
+  }
+  batch_list <- as.character(unique(pull(data@meta.data, x)))
+  marker<- tibble()
+  for(i in seq_along(batch_list)){
+    cat("executing ", batch_list[i], "process\n")
+    use_id <- rownames(data@meta.data[pull(data@meta.data, x) == batch_list[i],])
+    sub_temp <- SubsetData(data, cells = use_id)
+    temp <- FindAllMarkers(object = sub_temp, min.pct = min.pct, min.diff.pct = min.diff.pct,
+                           logfc.threshold = logfc.threshold, ...)
+    temp$batch <- batch_list[i]
+    marker <- marker %>% bind_rows(temp)
+  }
+  return(marker)
+}
+
 
