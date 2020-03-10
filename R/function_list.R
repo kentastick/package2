@@ -775,3 +775,6 @@ add_info <- function(data) {
 }
 
 
+a <- function(...) {
+  c(...)
+}
