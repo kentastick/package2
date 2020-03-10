@@ -334,7 +334,7 @@ df_to_list <- function(df) {
   #execute at seurat_object directory
 #make_subset(data_list = data_list, "HSC_combined", signature = "Mesenchyme", func = "me)
 
-  make_subset <- function(data_list, save_folda, cell_type, use_func = "me", marker = "gene_list") {
+  make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", marker = "gene_list") {
 
     #data_list <- data_list[!str_detect(data_list, "posi|blood")] #remove cd45posi(non-parenchyme cells include)
 
@@ -432,6 +432,107 @@ df_to_list <- function(df) {
   }
 
 
+  make_subset_ <- function(data_list, save_folda, cell_type, use_func = "mean", marker = "gene_list") {
+
+    #data_list <- data_list[!str_detect(data_list, "posi|blood")] #remove cd45posi(non-parenchyme cells include)
+
+    #dir_name <- data_list %>% str_extract("(?<=\\/)\\S{1,12}(?=.rds)")
+    data_name <- data_list %>% str_extract("\\S{1,20}(?=.rds)")
+    #subset_name <- paste0(dir_name, "_hepato_subset") #hepatocyte extract
+
+    dir_name <- file.path(save_folda, data_name)
+
+    #subset_name <- paste0(data_name, "_hepato_subset") # extract
+    subset_name <- paste0(data_name,"_", paste0(cell_type, collapse = "_")) # extract
+
+    gene_list <- get_list(marker = marker)
+
+    cell_num <- vector()
+    for(i in seq_along(data_list)){
+
+      cat(data_name[i], "executing\n")
+
+      if(!dir.exists(dir_name[i])){
+        dir.create(dir_name[i])
+      }else next
+
+      if(!data_name[i] %in% ls(envir = globalenv())) data <- readRDS(data_list[i])
+
+      if(class(data) != "Seurat") next
+
+       #signature_plot
+
+      df <- sig_val(marker = marker, object = data, use_func = use_func)
+
+      df2 <- sig_val2(score_mt = df)
+
+      signature_plot_(mat_value = df2)
+
+      try(ggsave(filename = paste0(dir_name[i], "/signature_plot.jpg")))
+
+      #calculate mean value of each signature in whole cells.
+      val_mean <- apply(df[names(gene_list)], 2, mean)
+
+       # use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
+       #      group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
+       #      filter(signature == cell_type, n_clu %in% c(1, 2)|n_sig ==1) %>% pull(cluster)
+       #
+       # use_id <- df %>% filter(get(cell_type)> val_mean[cell_type], cluster %in% use_cluster_no) %>%
+       #   pull(cell_id)
+
+       use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
+            group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
+            filter(signature %in% cell_type, n_clu ==1|n_sig ==1|score>0.5) %>% pull(cluster)
+
+       use_id <- df %>% filter(cluster %in% use_cluster_no) %>%
+         pull(cell_id)
+
+      if(length(use_id)<100){
+        use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
+          group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
+          filter(signature == cell_type, n_clu %in% c(1,2)|n_sig %in% c(1)) %>% pull(cluster)
+        use_id <- df %>% filter(cluster %in% use_cluster_no) %>%
+          pull(cell_id)
+
+      }
+
+
+      cat("number of cell is ", length(use_id), "\n")
+      cell_num[i] <- length(use_id)
+      names(cell_num)[i] <- data_name[i]
+      if(length(use_id)< 20){
+        cat("cell number is too small. skip procedure\n")
+        next
+      }
+
+      #make subset_object of hepato_id cells
+      sub_data <- subset(data, cells = use_id)
+      ts(object = sub_data)
+      try(ggsave(paste0(dir_name[i], "/subset_plot.jpg")))
+
+      ts(object = data)
+      try(ggsave(paste0(dir_name[i], "/whole_plot.jpg")))
+
+     for(j in seq_along(cell_type)){
+          tmap(object = data, features =  gene_list[[cell_type[j]]])
+          try(ggsave(paste0(dir_name[i], "/whole_feature_plot_", cell_type[j],".jpg"), width = 20, height =20, units =  "cm" ))
+          tmap(object = sub_data, features =  gene_list[[cell_type[j]]])
+          try(ggsave(paste0(dir_name[i], "/feature_plot", cell_type[j],".jpg"), width = 20, height =20, units =  "cm" ))
+          }
+
+
+
+      #save as a hepatocyte_subset object
+
+      saveRDS(sub_data, file = paste0(dir_name[i], "/",subset_name[i],".rds"))
+      saveRDS(cell_num, file = paste0(dir_name[i], "/",subset_name[i],"_cell_num.rds"))
+      assign("cell_num", cell_num,envir = globalenv() )
+
+    }
+
+  }
+
+
 
 
 # combined method ---------------------------------------------------------
@@ -476,7 +577,7 @@ combined <- function(object.list,cell_type = "subset", k.filter = 200) {
 # read all subset data ----------------------------------------------------
 
 make_list <- function(cell_type) {
-  file_dir <- list.files(pattern = paste0(cell_type,".rds"), recursive = T)
+  file_dir <- list.files(pattern = paste0(paste0(cell_type,collapse = "_"),".rds"), recursive = T)
 
   file_name <- file_dir %>% str_split("/") %>% map(~.[1]) %>% unlist
   object.list <- list()
@@ -498,6 +599,12 @@ make_list <- function(cell_type) {
 #   temp <- get(parse_arg)
 #   saveRDS(object = temp, file = paste0(parse_arg, ".rds"))
 # }
+
+sa <- function(x) {
+  parse_arg <- substitute(x)
+  saveRDS(object = data, file = paste0(deparse(parse_arg), ".rds"))
+}
+
 
 sav <- function(x) {
   parse_arg <- substitute(x)
@@ -605,8 +712,8 @@ diff_test <- function(x, min.pct = 0.15, min.diff.pct = 0.1, logfc.threshold = 0
 # plot signature scpre ----------------------------------------------------
 
 
-feature_sig <- function(marker, object = data) {
-  df <- sig_val(marker = marker)
+feature_sig <- function(marker, object = data, use_func = "mean", filter = FALSE) {
+  df <- sig_val(marker = marker, use_func = use_func , filter = filter)
   df <- df %>% dplyr::select(-cluster, -cell_id)
   object@meta.data <- object@meta.data %>% rownames_to_column(var = "temp") %>%
     bind_cols(df[colnames(df)]) %>% column_to_rownames(var = "temp")
@@ -638,5 +745,33 @@ bar_origin <- function(meta_data, object= data) {
 
 
 
+# adding meta info --------------------------------------------------------
+
+add_info <- function(data) {
+  data$reference <- data@meta.data %>% mutate(reference = fct_collapse(batch, Macparland = "macpoland",
+                                                                       Aizarani = "aizarani",
+                                                                       RamaChandran = c("chandran_cd45nega_ht", "chandran_cd45posi_ht", "chandran_cd45nega_ch", "chandran_cd45posi_ch", "ramachandran_blood"),
+                                                                       ours_case1 = "pbc_case1",
+                                                                       ours_case2 = "pbc_case2")) %>%
+    mutate(reference = case_when(str_detect(batch, "fetal|adult")~"Segal",
+                                 str_detect(batch, "HCC|ICC")~"Ma",
+                                 TRUE~as.character(reference))) %>% pull(reference)
+
+  data$disease <- data@meta.data %>% mutate(disease = fct_collapse(batch,NL_1 = "macpoland",
+                                                                   NL_2 = "aizarani",
+                                                                   NL_3 = c("chandran_cd45nega_ht", "chandran_cd45posi_ht"),
+                                                                   CH = c("chandran_cd45nega_ch", "chandran_cd45posi_ch"),
+                                                                   PBC = c("pbc_case1", "pbc_case2"),
+                                                                   BL = "ramachandran_blood")) %>%
+    mutate(disease = case_when(str_detect(batch, "fetal")~"FL",
+                               str_detect(batch, "adult")~"NL_4",
+                               str_detect(batch, "HCC")~"HCC",
+                               str_detect(batch, "ICC")~"ICC",
+                               TRUE~as.character(disease))) %>% pull(disease)
+
+  return(data)
+
+
+}
 
 
