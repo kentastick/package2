@@ -294,6 +294,7 @@ sig_val2 <- function(score_mt) {
 }
 
 
+
 #internal function in make_subset
 signature_plot_ <- function(mat_value, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
   mat_value %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
@@ -374,17 +375,16 @@ df_to_list <- function(df) {
       #calculate mean value of each signature in whole cells.
       val_mean <- apply(df[names(gene_list)], 2, mean)
 
-      #select cluster hepatocyte val over 0.2
-      #hepato_cluster_no <- df2 %>% filter(signature == "Hepatocyte", fraction_of_cells>0.2) %>% pull(cluster)
-      #use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(no = row_number(-score)) %>% filter(signature == cell_type, no ==1) %>% pull(cluster)
-      # use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
-      #   group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
-      #   filter(signature == cell_type, n_clu ==1|n_sig ==1) %>% pull(cluster)
-      #
+       # use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
+       #      group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
+       #      filter(signature == cell_type, n_clu %in% c(1, 2)|n_sig ==1) %>% pull(cluster)
+       #
+       # use_id <- df %>% filter(get(cell_type)> val_mean[cell_type], cluster %in% use_cluster_no) %>%
+       #   pull(cell_id)
 
        use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
             group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
-            filter(signature == cell_type, n_clu ==1|n_sig ==1) %>% pull(cluster)
+            filter(signature == cell_type, n_clu ==1|n_sig ==1|score>0.5) %>% pull(cluster)
 
        use_id <- df %>% filter(get(cell_type)> val_mean[cell_type], cluster %in% use_cluster_no) %>%
          pull(cell_id)
@@ -411,14 +411,21 @@ df_to_list <- function(df) {
       sub_data <- subset(data, cells = use_id)
       ts(object = sub_data)
       try(ggsave(paste0(dir_name[i], "/subset_plot.jpg")))
+
+      ts(object = data)
+      try(ggsave(paste0(dir_name[i], "/whole_plot.jpg")))
+
+      tmap(object = data, features =  gene_list[[cell_type]])
+      try(ggsave(paste0(dir_name[i], "/whole_feature_plot.jpg"), width = 20, height =20, units =  "cm" ))
+
       tmap(object = sub_data, features =  gene_list[[cell_type]])
       try(ggsave(paste0(dir_name[i], "/feature_plot.jpg"), width = 20, height =20, units =  "cm" ))
+
       #save as a hepatocyte_subset object
 
       saveRDS(sub_data, file = paste0(dir_name[i], "/",subset_name[i],".rds"))
+      saveRDS(cell_num, file = paste0(dir_name[i], "/",subset_name[i],"_cell_num.rds"))
       assign("cell_num", cell_num,envir = globalenv() )
-      savRDS
-
 
     }
 
