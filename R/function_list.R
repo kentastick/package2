@@ -926,18 +926,8 @@ geneano_msig_gsea <- function(gene_list) {
   if(class(res) == "try-error") return(NULL)
 }
 
-b <- a$gene_list[[1]] %>% geneano_msig_gsea()
-
 
 do_geneano <- function(use_func, marker_df = marker) {
   marker_df %>% mutate(res = map(gene_entrez, .f = use_func(gene = .)))
 }
-
-
-
-#graphics function of gene ontology
-
-
-barplot(egmt, showCategory = 20)
-
 
