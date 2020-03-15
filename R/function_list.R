@@ -304,7 +304,7 @@ signature_plot_ <- function(mat_value, use.color = c("#0099FF", "#FAF5F5", "#E32
 
 
 #conduct through calculation in sig_val1, 2 to plot
-signature_plot <- function(object = data, marker = "gene_list", use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+signature_plot <- function(marker = "gene_list", object = data, use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
     df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
     df <- sig_val2(score_mt = df)
     df %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
@@ -358,7 +358,11 @@ df_to_list <- function(df) {
         dir.create(dir_name[i])
       }else next
 
-      if(!data_name[i] %in% ls(envir = globalenv())) data <- readRDS(data_list[i])
+      if(!data_name[i] %in% ls(envir = globalenv())){
+        data <- readRDS(data_list[i])
+      }else{
+        data <- get(data_name[i])
+      }
 
       if(class(data) != "Seurat") next
 
@@ -384,7 +388,7 @@ df_to_list <- function(df) {
 
        use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
             group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
-            filter(signature == cell_type, n_clu ==1|n_sig ==1|score>0.5) %>% pull(cluster)
+            filter(signature == cell_type, n_clu ==1|n_sig ==1,score>0.5) %>% pull(cluster)
 
        use_id <- df %>% filter(get(cell_type)> val_mean[cell_type], cluster %in% use_cluster_no) %>%
          pull(cell_id)
@@ -545,8 +549,10 @@ combined <- function(object.list,cell_type = "subset", k.filter = 200) {
   })
 
   object.anchors <- FindIntegrationAnchors(object.list = object.list,k.filter = k.filter, dims = 1:20)
-  #suceeded by changing object.list order but don't know the reason
 
+  # object.anchors <- try(FindIntegrationAnchors(object.list = object.list,k.filter = k.filter, dims = 1:20))
+  # if(class(object.anchors)== "try-error")return(NULL)
+  #suceeded by changing object.list order but don't know the reason
   object.combined <- IntegrateData(anchorset = object.anchors, dims = 1:20)
 
   DefaultAssay(object.combined) <- "integrated"
@@ -588,8 +594,14 @@ make_list <- function(cell_type) {
   return(object.list)
 }
 
+load_list <- function(data_list) {
+  file_name <-  data_list %>% str_extract(".*(?=.rds)")
+  for(i in seq_along(data_list)){
+    assign(x =file_name[i], value = readRDS(data_list[i]), envir = globalenv())
+  }
+}
 
-# simple save function: just write object name on the same directo --------
+
 
 # sav <- function(x) {
 #   parse_arg <- substitute(x)
@@ -611,9 +623,6 @@ sav <- function(x) {
   saveRDS(object = x, file = paste0(deparse(parse_arg), ".rds"))
 }
 
-af <- function(x) {
-  log(x +1)
-}
 
 # get gene_list -----------------------------------------------------------
 
@@ -712,12 +721,14 @@ diff_test <- function(x, min.pct = 0.15, min.diff.pct = 0.1, logfc.threshold = 0
 # plot signature scpre ----------------------------------------------------
 
 
-feature_sig <- function(marker, object = data, use_func = "mean", filter = FALSE) {
+feature_sig <- function(features = NULL, marker, object = data, use_func = "mean", use_plot = ump,filter = FALSE) {
   df <- sig_val(marker = marker, use_func = use_func , filter = filter)
   df <- df %>% dplyr::select(-cluster, -cell_id)
   object@meta.data <- object@meta.data %>% rownames_to_column(var = "temp") %>%
     bind_cols(df[colnames(df)]) %>% column_to_rownames(var = "temp")
-  ump(object = object, features = colnames(df))
+  if(!is.null(features)){
+    use_plot(object = object, features = features)
+  }else use_plot(object = object, features = colnames(df))
 }
 
 
@@ -727,9 +738,15 @@ feature_sig <- function(marker, object = data, use_func = "mean", filter = FALSE
 
 add_meta <- function(df, object = data) {
   object@meta.data <- object@meta.data %>% rownames_to_column(var = "temp") %>%
-    bind_cols(df[colname(df)]) %>% column_to_rownames(var = "temp")
+    bind_cols(df[colnames(df)]) %>% column_to_rownames(var = "temp")
   return(object)
 }
+
+add_m <- function(df_list, add = "_m") {
+  colnames(df_list) <- paste0(colnames(df_list), add)
+  return(df_list)
+}
+
 
 
 
@@ -739,6 +756,12 @@ bar_origin <- function(meta_data, object= data) {
   object@meta.data %>% dplyr::select(seurat_clusters, meta_data) %>%
     pivot_longer(meta_data,values_to = "batch") %>%
     ggplot(aes(seurat_clusters, fill = batch)) + geom_bar(position = "fill")
+}
+
+bar_cluster <- function(meta_data, object= data) {
+  object@meta.data %>% dplyr::select(seurat_clusters, meta_data) %>%
+    pivot_longer(meta_data,values_to = "batch") %>%
+    ggplot(aes(batch, fill = seurat_clusters)) + geom_bar(position = "fill")
 }
 
 
@@ -761,7 +784,8 @@ add_info <- function(data) {
                                                                    NL_2 = "aizarani",
                                                                    NL_3 = c("chandran_cd45nega_ht", "chandran_cd45posi_ht"),
                                                                    CH = c("chandran_cd45nega_ch", "chandran_cd45posi_ch"),
-                                                                   PBC = c("pbc_case1", "pbc_case2"),
+                                                                   PBC_1 = "pbc_case1",
+                                                                   PBC_2 = "pbc_case2",
                                                                    BL = "ramachandran_blood")) %>%
     mutate(disease = case_when(str_detect(batch, "fetal")~"FL",
                                str_detect(batch, "adult")~"NL_4",
@@ -775,6 +799,145 @@ add_info <- function(data) {
 }
 
 
-a <- function(...) {
-  c(...)
+# write smooth ------------------------------------------------------------
+
+
+write_smooth <- function(...) {
+  parse_x <- substitute(...)
+  if(!is.character(parse_x)) parse_x <- deparse(parse_x)
+  return(parse_x)
 }
+
+
+ch <- function() {
+  read_clip() %>% paste0(collapse =  "\\\"\\,\\\"")
+}
+
+
+
+a <- function(x) {
+  iris %>% dplyr::select(a=1, b=2, c=3, d=4, sp=5) %>% filter(!!enquo(x))
+}
+
+
+
+# subset_modified ---------------------------------------------------------
+
+sub <- function(...) {
+  use_id <- data@meta.data %>% filter(...) %>% pull(id)
+  data <- subset(x = data, cells = use_id)
+  return(data)
+}
+
+
+
+# gene annotation analysis ------------------------------------------------
+
+
+do_diff <- function(...) {
+  FindAllMarkers(object = data, min.pct = 0.25, logfc.threshold = log(1.5), only.pos = T, ...)
+}
+
+marker_list <- function(marker_df) {
+  parse_name <- deparse(substitute(marker_df))
+  marker_df %>% group_by(cluster) %>% nest() %>%
+    mutate(gene_symbol = map(data, ~filter(., p_val_adj<0.05) %>% pull(gene))) %>%
+    mutate(gene_entrez_symbol = map(gene_symbol, ~convert_gene(.))) %>%
+    mutate(gene_entrez = map(gene_entrez_symbol, ~pull(., ENTREZID))) %>%
+    mutate(gene_list = map2(gene_entrez_symbol, data, ~make_gene_list(.x, .y) )) -> marker_df
+  saveRDS(marker_df, paste0(parse_name, "_list.rds"))
+  return(marker_df)
+}
+
+v <- function(marker_df) {
+  cat("executing:", deparse(substitute(marker_df)), "\n")
+  marker_df
+
+}
+
+
+make_gene_list <- function(arg1, arg2) {
+  df <-  arg1 %>% left_join(arg2,by = c("SYMBOL" = "gene") )
+  val <- df$avg_logFC
+  entrez_name <- df$ENTREZID
+  names(val) <- entrez_name
+  val <- sort(val, decreasing = T)
+  return(val)
+}
+
+
+
+convert_gene <- function(x) {
+  library(org.Hs.eg.db)
+  res <- try(clusterProfiler::bitr(x, fromType="SYMBOL", toType=c("ENTREZID"), OrgDb="org.Hs.eg.db"))
+  return(res)
+}
+
+#reactomrPA
+geneano_enricher <- function(gene_entrez) {
+  res <- try(ReactomePA::enrichPathway(gene=gene_entrez,pvalueCutoff=0.05, readable=T))
+  if(class(res)== "try-error")return(NULL)
+}
+
+#group go
+geneano_groupgo <- function(gene, ont_type = c("MF","BP", "CC")) {
+  library(org.Hs.eg.db)
+  res_go <- list()
+  for(i in seq_along(ont_type)){
+  res_go[i] <- groupGO(gene     = gene,
+            OrgDb    = org.Hs.eg.db,
+            ont      = ont_type[i],
+            level    = 3,
+            readable = TRUE)
+  }
+  names(res_go) <- ont_type
+  return(res_go)
+}
+
+#enrich go
+geneano_enrichgo <- function(gene) {
+        res <-  try(enrichGO(gene          = gene,
+                  universe      = names(geneList),
+                  OrgDb         = org.Hs.eg.db,
+                  ont           = "CC",
+                  pAdjustMethod = "BH",
+                  pvalueCutoff  = 0.01,
+                  qvalueCutoff  = 0.05,
+                  readable      = TRUE))
+        if(class(res) == "try-error") return(NULL)
+}
+
+
+geneano_msig <- function(gene_symbol) {
+  #gmtfile <- system.file("extdata", "c7.all.v7.0.symbols.gmt", package="clusterProfiler")
+  gmtfile2 <- system.file("extdata", "c5.all.v7.0.symbols.gmt", package="clusterProfiler")
+  #c7 <- read.gmt(gmtfile)
+  c5 <- read.gmt(gmtfile2)
+  try(enricher(gene= gene_symbol, TERM2GENE=c5))
+  if(class(res) == "try-error") return(NULL)
+}
+
+geneano_msig_gsea <- function(gene_list) {
+  #gmtfile <- system.file("extdata", "c7.all.v7.0.symbols.gmt", package="clusterProfiler")
+  gmtfile2 <- system.file("extdata", "c5.all.v7.0.symbols.gmt", package="clusterProfiler")
+  #c7 <- read.gmt(gmtfile)
+  c5 <- read.gmt(gmtfile2)
+  try(enricher(gene = gene_list, TERM2GENE=c5))
+  if(class(res) == "try-error") return(NULL)
+}
+
+b <- a$gene_list[[1]] %>% geneano_msig_gsea()
+
+
+do_geneano <- function(use_func, marker_df = marker) {
+  marker_df %>% mutate(res = map(gene_entrez, .f = use_func(gene = .)))
+}
+
+
+
+#graphics function of gene ontology
+
+
+barplot(egmt, showCategory = 20)
+
+
