@@ -140,18 +140,6 @@ vls <- function(..., type = 'png') {
 
 
 
-#file save
-
-sav <- function(object, name, path) {
-  saveRDS(object = object, file = paste(path, name,".rds"))
-}
-
-savc <- function(...) {
-  sav(path = "data/combined/",...)
-}
-
-
-
 # scraping function -------------------------------------------------------
 
 #page <- rvest::read_html("https://www.genecards.org/Search/Keyword?queryString=Chromogranin")
@@ -292,6 +280,15 @@ sig_val2 <- function(score_mt) {
     mutate(max = max(mean)) %>%
     mutate(score = mean/max)
 }
+sig_val3 <- function(score_mt) {
+
+  score_mt %>% gather(-cluster, -cell_id, key = "signature", value = "score") %>%
+    group_by(cluster, signature) %>%
+    summarise(fraction_of_cells = sum(score>0)/n(), mean = mean(score)) %>%
+    group_by(cluster) %>%
+    mutate(max = max(mean)) %>%
+    mutate(score = mean/max)
+}
 
 
 
@@ -308,6 +305,13 @@ signature_plot <- function(marker = "gene_list", object = data, use_func = "mean
     df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
     df <- sig_val2(score_mt = df)
     df %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
+    scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+                           values = c(1.0,0.7,0.6,0.4,0.3,0))
+}
+signature_plot_within <- function(marker = "gene_list", object = data, use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
+    df <- sig_val3(score_mt = df)
+    df %>% ggplot(aes(signature, cluster, colour =score, size = fraction_of_cells)) + geom_point() +
     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
                            values = c(1.0,0.7,0.6,0.4,0.3,0))
 }
@@ -612,7 +616,7 @@ load_list <- function(data_list) {
 #   saveRDS(object = temp, file = paste0(parse_arg, ".rds"))
 # }
 
-sa <- function(x) {
+sa_data <- function(x) {
   parse_arg <- substitute(x)
   saveRDS(object = data, file = paste0(deparse(parse_arg), ".rds"))
 }
@@ -799,6 +803,18 @@ add_info <- function(data) {
 }
 
 
+add_sig_val <- function(object = data) {
+  df_gene_list_m <- sig_val(object = object) %>% add_m(add = "_m")
+  df_gene_list_gm <- sig_val(object = object, use_func = "gm_mean") %>% add_m(add = "_gm")
+  df_segal_list_m <- sig_val(object = object, marker = "segal_list") %>% add_m(add = "_m")
+  df_segal_list_gm <- sig_val(object = object, marker = "segal_list",use_func = "gm_mean") %>% add_m(add = "_gm")
+
+  df_com <- list(df_gene_list_m, df_gene_list_gm, df_segal_list_m, df_segal_list_gm) %>% purrr::reduce(cbind)
+  df_com <- df_com %>% keep(is.numeric)
+  object <- add_meta(df = df_com, object = object)
+}
+
+
 # write smooth ------------------------------------------------------------
 
 
@@ -834,8 +850,8 @@ sub <- function(...) {
 # gene annotation analysis ------------------------------------------------
 
 
-do_diff <- function(...) {
-  FindAllMarkers(object = data, min.pct = 0.25, logfc.threshold = log(1.5), only.pos = T, ...)
+do_diff <- function(object = data, ...) {
+  FindAllMarkers(object = object, min.pct = 0.25, logfc.threshold = log(1.5), only.pos = T, ...)
 }
 
 marker_list <- function(marker_df) {
@@ -844,7 +860,8 @@ marker_list <- function(marker_df) {
     mutate(gene_symbol = map(data, ~filter(., p_val_adj<0.05) %>% pull(gene))) %>%
     mutate(gene_entrez_symbol = map(gene_symbol, ~convert_gene(.))) %>%
     mutate(gene_entrez = map(gene_entrez_symbol, ~pull(., ENTREZID))) %>%
-    mutate(gene_list = map2(gene_entrez_symbol, data, ~make_gene_list(.x, .y) )) -> marker_df
+    mutate(gene_list_entrez = map2(gene_entrez_symbol, data, ~make_gene_list(.x, .y) )) %>%
+    mutate(gene_list_symbol = map2(data, gene_symbol, ~make_gene_list_2(.x, .y))) -> marker_df
   saveRDS(marker_df, paste0(parse_name, "_list.rds"))
   return(marker_df)
 }
@@ -864,6 +881,12 @@ make_gene_list <- function(arg1, arg2) {
   val <- sort(val, decreasing = T)
   return(val)
 }
+make_gene_list_2 <- function(arg1, arg2) {
+  val <-  arg1 %>% filter(gene %in% arg2) %>% pull(avg_logFC)
+  names(val) <- arg2
+  val <- sort(val, decreasing = T)
+  return(val)
+}
 
 
 
@@ -875,8 +898,8 @@ convert_gene <- function(x) {
 
 #reactomrPA
 geneano_enricher <- function(gene_entrez) {
-  res <- try(ReactomePA::enrichPathway(gene=gene_entrez,pvalueCutoff=0.05, readable=T))
-  if(class(res)== "try-error")return(NULL)
+  res <- try(ReactomePA::enrichPathway(gene=gene_entrez, pvalueCutoff=0.05, readable=T))
+  #if(class(res)== "try-error")return(NULL)
 }
 
 #group go
@@ -884,11 +907,11 @@ geneano_groupgo <- function(gene, ont_type = c("MF","BP", "CC")) {
   library(org.Hs.eg.db)
   res_go <- list()
   for(i in seq_along(ont_type)){
-  res_go[i] <- groupGO(gene     = gene,
+  res_go[i] <- try(clusterProfiler::groupGO(gene     = gene,
             OrgDb    = org.Hs.eg.db,
             ont      = ont_type[i],
             level    = 3,
-            readable = TRUE)
+            readable = TRUE))
   }
   names(res_go) <- ont_type
   return(res_go)
@@ -904,7 +927,6 @@ geneano_enrichgo <- function(gene) {
                   pvalueCutoff  = 0.01,
                   qvalueCutoff  = 0.05,
                   readable      = TRUE))
-        if(class(res) == "try-error") return(NULL)
 }
 
 
@@ -912,22 +934,70 @@ geneano_msig <- function(gene_symbol) {
   #gmtfile <- system.file("extdata", "c7.all.v7.0.symbols.gmt", package="clusterProfiler")
   gmtfile2 <- system.file("extdata", "c5.all.v7.0.symbols.gmt", package="clusterProfiler")
   #c7 <- read.gmt(gmtfile)
-  c5 <- read.gmt(gmtfile2)
-  try(enricher(gene= gene_symbol, TERM2GENE=c5))
-  if(class(res) == "try-error") return(NULL)
+  c5 <- clusterProfiler::read.gmt(gmtfile2)
+  res <- try(clusterProfiler::enricher(gene = gene_entrez, TERM2GENE=c5))
+
 }
 
 geneano_msig_gsea <- function(gene_list) {
   #gmtfile <- system.file("extdata", "c7.all.v7.0.symbols.gmt", package="clusterProfiler")
   gmtfile2 <- system.file("extdata", "c5.all.v7.0.symbols.gmt", package="clusterProfiler")
   #c7 <- read.gmt(gmtfile)
-  c5 <- read.gmt(gmtfile2)
-  try(enricher(gene = gene_list, TERM2GENE=c5))
-  if(class(res) == "try-error") return(NULL)
+  c5 <- clusterProfiler::read.gmt(gmtfile2)
+  res <- try(clusterProfiler::GSEA(gene = gene_list, TERM2GENE=c5))
 }
 
 
-do_geneano <- function(use_func, marker_df = marker) {
-  marker_df %>% mutate(res = map(gene_entrez, .f = use_func(gene = .)))
+do_geneano <- function(marker_df, res_name = "res_enricher",gene_type = gene_entrez, use_func = geneano_enricher) {
+
+  gene_type <- enquo(gene_type)
+  res_name <- enquo(res_name)
+  marker_df %>% mutate(!!res_name := map(!!gene_type, ~use_func(gene = .)))
 }
+
+
+enrich_gene_type_table <- tribble(~res_name, ~gene_type, ~func,
+                                  "res_enrich", "gene_entrez", "geneano_enricher")
+
+
+
+
+# filter  -----------------------------------------------------------------
+
+
+add_all <- function(data) {
+  data <- add_info(data = data)
+  data <- add_sig_val(object = data)
+}
+
+fil_cell <- function(cell_type, remove_cluster = NULL, remove_disease = NULL) {
+
+  data[[]] %>% dplyr::select(id,ends_with("_m")) %>% gather(-id,key = "type",value = "value" ) %>%
+    group_by(id) %>%  mutate(rank = row_number(-value)) %>% arrange(id,rank) %>%
+    filter(type == paste0(cell_type, "_m"), rank == 1, value>0) %>% pull(id)-> use_id
+
+  data <- sub(id %in%use_id, !seurat_clusters %in% remove_cluster, !disease %in% remove_disease)
+}
+
+
+
+
+# barplot -----------------------------------------------------------------
+
+
+
+bar <- function(arg1, arg2) {
+  res <- barplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T)
+  res
+  ggsave(filename = paste0(as.character(arg2), "_enrichplot.jpg"), device = "jpg")
+  return(res)
+}
+cnet <- function(arg1, arg2) {
+  res <- clusterProfiler::cnetplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T)
+  res
+  ggsave(filename = paste0(as.character(arg2), "_cnetplot.jpg"), device = "jpg")
+  return(res)
+}
+
+
 
