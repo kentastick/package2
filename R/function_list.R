@@ -982,15 +982,18 @@ fil_cell <- function(cell_type, remove_cluster = NULL, remove_disease = NULL) {
 
 
 bar <- function(arg1, arg2) {
-  res <- barplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T)
+
+  if(!dir.exists("pathway_plot")) dir.create("pathway_plot")
+  res <- try(barplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T))
   res
-  ggsave(filename = paste0(as.character(arg2), "_enrichplot.jpg"), device = "jpg")
+  ggsave(filename = paste0("pathway_plot/",as.character(arg2), "_enrichplot.jpg"), device = "jpg")
   return(res)
 }
 cnet <- function(arg1, arg2) {
-  res <- clusterProfiler::cnetplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T)
+  if(!dir.exists("pathway_plot")) dir.create("pathway_plot")
+  res <- try(clusterProfiler::cnetplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T))
   res
-  ggsave(filename = paste0(as.character(arg2), "_cnetplot.jpg"), device = "jpg")
+  ggsave(filename = paste0("pathway_plot/",as.character(arg2), "_cnetplot.jpg"), device = "jpg")
   return(res)
 }
 
