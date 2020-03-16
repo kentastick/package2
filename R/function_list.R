@@ -956,11 +956,6 @@ do_geneano <- function(marker_df, res_name = "res_enricher",gene_type = gene_ent
 }
 
 
-enrich_gene_type_table <- tribble(~res_name, ~gene_type, ~func,
-                                  "res_enrich", "gene_entrez", "geneano_enricher")
-
-
-
 
 # filter  -----------------------------------------------------------------
 
