@@ -1066,7 +1066,7 @@ make_venn <- function(df = dirr_test_res) {
 #result of findallmarker
 
 get_marker_table <- function(marker_list) {
-   df %>% filter(...) %>% dplyr::select(cluster, gene) %>%
+   marker_list %>% filter(...) %>% dplyr::select(cluster, gene) %>%
     group_by(cluster) %>% nest %>%
     mutate(gene = map(data, ~pull(.x, gene) %>% paste0(., collapse = ", ")) %>%
     unnest() %>% write_clip()
