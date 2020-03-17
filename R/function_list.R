@@ -495,7 +495,7 @@ df_to_list <- function(df) {
        use_id <- df %>% filter(cluster %in% use_cluster_no) %>%
          pull(cell_id)
 
-      }
+
 
 
       cat("number of cell is ", length(use_id), "\n")
