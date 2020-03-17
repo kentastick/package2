@@ -102,8 +102,8 @@ make_time <- function() {
 
 
 #plot
-up <- function(..., label= TRUE) {
-  DimPlot(object = data, label = label,...)
+up <- function(object = data, label= TRUE) {
+  DimPlot(object = object, label = label,...)
 }
 
 ups <- function(..., label = TRUE,type = 'png') {
@@ -115,7 +115,7 @@ ts <- function(object = data, ...) {
 }
 
 tmap <- function(features, object = data, ...) {
-  FeaturePlot(features = features,object = object, reduction = 'tsne',  cols = c('lightgray', 'red'),...)
+  FeaturePlot(features = features,object = object, reduction = 'tsne',  cols = c('lightgray', 'red'), min.cutoff = 0, ...)
 }
 
 tmps <- function(features, object = data, type = 'png') {
@@ -490,17 +490,10 @@ df_to_list <- function(df) {
 
        use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
             group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
-            filter(signature %in% cell_type, n_clu ==1|n_sig ==1|score>0.5) %>% pull(cluster)
+            filter(signature %in% cell_type, n_clu ==1|n_sig ==1,score>0.5) %>% pull(cluster)
 
        use_id <- df %>% filter(cluster %in% use_cluster_no) %>%
          pull(cell_id)
-
-      if(length(use_id)<100){
-        use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
-          group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
-          filter(signature == cell_type, n_clu %in% c(1,2)|n_sig %in% c(1)) %>% pull(cluster)
-        use_id <- df %>% filter(cluster %in% use_cluster_no) %>%
-          pull(cell_id)
 
       }
 
@@ -699,25 +692,31 @@ pplot <- function(x) {
 
 
 # differential gene expression analysis within same sample ----------------
+#x
 
-diff_test <- function(x, min.pct = 0.15, min.diff.pct = 0.1, logfc.threshold = 0.25, ...) {
+diff_test <- function(x, object = data, min.pct = 0.15, min.diff.pct = 0.1, logfc.threshold = 0.25, ...) {
   x <- substitute(x)
   if(!is.character(x)){
     x <- deparse(x)
   }
-  batch_list <- as.character(unique(pull(data@meta.data, x)))
+  batch_list <- as.character(unique(pull(object@meta.data, x)))
   marker<- tibble()
   for(i in seq_along(batch_list)){
     cat("executing ", batch_list[i], "process\n")
-    use_id <- rownames(data@meta.data[pull(data@meta.data, x) == batch_list[i],])
-    sub_temp <- SubsetData(data, cells = use_id)
+    use_id <- rownames(object@meta.data[pull(object@meta.data, x) == batch_list[i],])
+    sub_temp <- SubsetData(object, cells = use_id)
     temp <- FindAllMarkers(object = sub_temp, min.pct = min.pct, min.diff.pct = min.diff.pct,
                            logfc.threshold = logfc.threshold, ...)
+
+    if(nrow(temp)==0)next
+
     temp$batch <- batch_list[i]
     marker <- marker %>% bind_rows(temp)
+
   }
   return(marker)
 }
+
 
 
 
@@ -831,10 +830,6 @@ ch <- function() {
 
 
 
-a <- function(x) {
-  iris %>% dplyr::select(a=1, b=2, c=3, d=4, sp=5) %>% filter(!!enquo(x))
-}
-
 
 
 # subset_modified ---------------------------------------------------------
@@ -843,6 +838,18 @@ sub <- function(...) {
   use_id <- data@meta.data %>% filter(...) %>% pull(id)
   data <- subset(x = data, cells = use_id)
   return(data)
+}
+sub2 <- function(object = data, ...) {
+  use_id <- object@meta.data %>% filter(...) %>% pull(id)
+  res <- subset(x = object, cells = use_id)
+  return(res)
+}
+
+pick_id <- function(...) {
+  data@meta.data %>% filter(...) %>% pull(id)
+}
+pick_id <- function(..., object = data) {
+  object@meta.data %>% filter(...) %>% pull(id)
 }
 
 
@@ -865,6 +872,17 @@ marker_list <- function(marker_df) {
   saveRDS(marker_df, paste0(parse_name, "_list.rds"))
   return(marker_df)
 }
+
+
+marker_list_map <- function(df) {
+  df %>% mutate(gene_symbol = map(data, ~filter(., p_val_adj <  0.05) %>%
+                             pull(gene))) %>%
+    mutate(gene_entrez_symbol = map(gene_symbol,  ~convert_gene(.))) %>%
+    mutate(gene_entrez = map(gene_entrez_symbol, ~try(pull(., ENTREZID)))) %>%
+    mutate(gene_list_entrez = map2(gene_entrez_symbol,data, ~try(make_gene_list(.x, .y)))) %>%
+    mutate(gene_list_symbol = map2(data, gene_symbol, ~try(make_gene_list_2(.x, .y))))
+}
+
 
 v <- function(marker_df) {
   cat("executing:", deparse(substitute(marker_df)), "\n")
@@ -893,6 +911,7 @@ make_gene_list_2 <- function(arg1, arg2) {
 convert_gene <- function(x) {
   library(org.Hs.eg.db)
   res <- try(clusterProfiler::bitr(x, fromType="SYMBOL", toType=c("ENTREZID"), OrgDb="org.Hs.eg.db"))
+
   return(res)
 }
 
@@ -956,6 +975,13 @@ do_geneano <- function(marker_df, res_name = "res_enricher",gene_type = gene_ent
 }
 
 
+ add_enrich_anotation <- function(marker_list) {
+   marker_list <- marker_list %>% do_geneano(use_func = geneano_enricher, res_name = "res_enricher", gene_type = gene_entrez)
+   marker_list <- marker_list %>% mutate(bar_plot = map2(res_enricher, cluster, ~bar(.x, .y)))
+   marker_list <- marker_list %>% mutate(cnet_plot = map2(res_enricher, cluster, ~cnet(.x, .y)))
+ }
+
+
 
 # filter  -----------------------------------------------------------------
 
@@ -981,21 +1007,74 @@ fil_cell <- function(cell_type, remove_cluster = NULL, remove_disease = NULL) {
 
 
 
-bar <- function(arg1, arg2) {
+bar <- function(arg1, arg2, arg3 = NULL,pathname = "pathway_plot") {
 
-  if(!dir.exists("pathway_plot")) dir.create("pathway_plot")
+  if(!dir.exists(pathname)) dir.create(pathname)
   res <- try(barplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T))
   res
-  ggsave(filename = paste0("pathway_plot/",as.character(arg2), "_enrichplot.jpg"), device = "jpg")
+  ggsave(filename = paste0(pathname, "/", arg3,"_", as.character(arg2), "_enrichplot.jpg"), device = "jpg")
   return(res)
 }
-cnet <- function(arg1, arg2) {
-  if(!dir.exists("pathway_plot")) dir.create("pathway_plot")
+
+cnet <- function(arg1, arg2, arg3 = NULL, pathname = "pathway_plot") {
+  if(!dir.exists(pathname)) dir.create(pathname)
   res <- try(clusterProfiler::cnetplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T))
   res
-  ggsave(filename = paste0("pathway_plot/",as.character(arg2), "_cnetplot.jpg"), device = "jpg")
+  ggsave(filename = paste0(pathname, "/",arg3, "_", as.character(arg2), "_cnetplot.jpg"), device = "jpg")
   return(res)
 }
 
 
 
+
+# zip ---------------------------------------------------------------------
+
+#function converting df to list
+zip <- function(df) {
+  list <- df$data_filtered
+  names(list) <- df$batch
+  return(list)
+}
+
+
+# venn  -------------------------------------------------------------------
+
+do_venn <- function(arg1, arg2) {
+  if(!dir.exists("batch_diff")) dir.create("batch_diff")
+  jpeg(paste0("batch_diff/",as.character(arg2), "_venn.jpg"), width = 700, height = 700)
+  venn::venn(x = arg1, zcolor = "style", ilcs = 2)
+  dev.off()
+  #ggsave( filename =  paste0("batch_diff/",as.character(arg2), "_venn.jpg"), device = "jpg")
+}
+
+
+make_venn <- function(df = dirr_test_res) {
+  batch_diff_test <- df %>%
+    group_by(batch, cluster) %>% nest() %>%
+    mutate(data_filtered = map(data, ~filter(.) %>% pull(gene))) %>%
+    group_by(cluster) %>% nest() %>%
+    mutate(gene_list = map(data, ~zip(df = .))) %>%
+    mutate(venn = map2(gene_list,cluster, ~do_venn(.x,.y) ))
+  sav(batch_diff_test)
+  return(batch_diff_test)
+
+}
+
+
+# get marker table --------------------------------------------------------
+
+#result of findallmarker
+
+get_marker_table <- function(marker_list) {
+   df %>% filter(...) %>% dplyr::select(cluster, gene) %>%
+    group_by(cluster) %>% nest %>%
+    mutate(gene = map(data, ~pull(.x, gene) %>% paste0(., collapse = ", ")) %>%
+    unnest() %>% write_clip()
+}
+
+get_diff_test_marker <- function(diff_test_res, ...) {
+  diff_test_res %>% filter(...) %>% dplyr::select(cluster, batch, gene) %>%
+    group_by(cluster, batch) %>% nest() %>%
+    mutate(data = unlist(map(data, ~pull(.x, gene) %>% paste0(., collapse = ", ")))) %>%
+    write_csv(., path = "diff_test_table.csv")
+}
