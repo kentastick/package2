@@ -796,6 +796,8 @@ add_info <- function(data) {
                                str_detect(batch, "ICC")~"ICC",
                                TRUE~as.character(disease))) %>% pull(disease)
 
+  data$id <- rownames(data@meta.data)
+
   return(data)
 
 
@@ -845,10 +847,8 @@ sub2 <- function(object = data, ...) {
   return(res)
 }
 
-pick_id <- function(...) {
-  data@meta.data %>% filter(...) %>% pull(id)
-}
-pick_id <- function(..., object = data) {
+
+pick_id <- function(..., object =data) {
   object@meta.data %>% filter(...) %>% pull(id)
 }
 
@@ -1065,16 +1065,91 @@ make_venn <- function(df = dirr_test_res) {
 
 #result of findallmarker
 
-get_marker_table <- function(marker_list) {
+get_marker_table <- function(marker_list, ...) {
    marker_list %>% filter(...) %>% dplyr::select(cluster, gene) %>%
     group_by(cluster) %>% nest %>%
-    mutate(gene = map(data, ~pull(.x, gene) %>% paste0(., collapse = ", "))) %>%
-    unnest() %>% write_clip()
+    mutate(data = unlist(map(data, ~pull(.x, gene) %>% paste0(., collapse = ", ")))) %>%
+    unnest() %>%
+    write_clip()
 }
 
 get_diff_test_marker <- function(diff_test_res, ...) {
   diff_test_res %>% filter(...) %>% dplyr::select(cluster, batch, gene) %>%
     group_by(cluster, batch) %>% nest() %>%
     mutate(data = unlist(map(data, ~pull(.x, gene) %>% paste0(., collapse = ", ")))) %>%
-    write_csv(., path = "diff_test_table.csv")
+    write_clip()
+    #write_csv(., path = "diff_test_table.csv")
 }
+
+
+# tile_plot ---------------------------------------------------------------
+
+tile <- function(feature, object = data,...) {
+  use_id <- pick_id(object = object, ...)
+  use_df <- object@assays$RNA@data[feature, use_id]
+  cluster_label <- object@meta.data$seurat_clusters
+  if(length(feature) ==1){
+    use_df <- use_df %>% as.tibble()
+  }else{
+    use_df <- t(as.matrix(use_df)) %>% as.tibble()
+  }
+   use_df<- use_df %>% add_column(cluster = cluster_label)
+  use_df <- use_df %>% tidyr::pivot_longer(-cluster, names_to = "gene", values_to = "logCPM") %>%
+    group_by(cluster, gene) %>% summarise(avg_logCPM = mean(logCPM), pct = sum(logCPM>0)/n()) %>%
+    group_by(gene) %>% mutate(score = avg_logCPM/max(avg_logCPM))
+  use_df %>% ggplot(aes(cluster, gene, size = pct, colour = score)) + geom_point() +
+    scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+                           values = c(1.0,0.7,0.6,0.4,0.3,0))
+
+  }
+#
+# tile <- function(feature, object = data,...) {
+#   use_id <- pick_id(object = object, ...)
+#   use_df <- object@assays$RNA@data[feature, use_id]
+#   cluster_label <- object@meta.data$seurat_clusters
+#   if(length(feature) ==1){
+#     use_df <- use_df %>% as.tibble()
+#   }else{
+#     use_df <- t(as.matrix(use_df)) %>% as.tibble()
+#   }
+#    use_df<- use_df %>% add_column(cluster = cluster_label)
+#   use_df <- use_df %>% pivot_longer(-cluster, names_to = "gene", values_to = "logCPM") %>%
+#     group_by(cluster, gene) %>% summarise(avg_logCPM = mean(logCPM))
+#   a <<- use_df
+#   use_df %>% ggplot(aes(cluster, gene,  fill = avg_logCPM)) + geom_tilet() +
+#     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+#                            values = c(1.0,0.7,0.6,0.4,0.3,0))
+# }
+
+
+
+
+
+# monocle3 ----------------------------------------------------------------
+
+make_monocle3 <- function(seurat_object) {
+  uni_matrix <- seurat_object@assays$integrated@data
+  sample_info <- data.frame(seurat_object@meta.data,
+                            stringsAsFactors = F)
+
+  gene_annotation <- data.frame(gene_short_name = rownames(seurat_object))
+
+  rownames(gene_annotation) <- rownames(umi_matrix)
+  cds <- monocle3::new_cell_data_set(as(umi_matrix, "sparseMatrix"),
+                           cell_metadata = sample_info,
+                           gene_metadata = gene_annotation)
+}
+
+
+Data1 <- preprocess_cds(Data1, num_dim = 20)
+Data1 <- reduce_dimension(Data1) #UMAP reduce dimension (defalt)
+Data1 = cluster_cells(Data1, k = 7, reduction_method = "UMAP")
+plot_cells(Data1, reduction_method = "UMAP", color_cells_by = "cluster",
+           group_label_size = 6, cell_size = 1.5) #plot by cluster
+Data1 <- align_cds(Data1)
+Data1 <- learn_graph(Data1)
+
+
+plot_cells(Data2, color_cells_by = "pseudotime" )
+plot_cells(Data2, color_cells_by = "seurat_clusters" )
+Data2 <- order_cells(Data1, reduction_method = "UMAP")
