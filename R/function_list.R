@@ -1065,7 +1065,7 @@ make_venn <- function(df = dirr_test_res) {
 
 #result of findallmarker
 
-get_marker_table <- function(marker_list, ...) {
+get_marker_table <- function(marker_list = marker_list, ...) {
    marker_list %>% filter(...) %>% dplyr::select(cluster, gene) %>%
     group_by(cluster) %>% nest %>%
     mutate(data = unlist(map(data, ~pull(.x, gene) %>% paste0(., collapse = ", ")))) %>%
@@ -1141,15 +1141,15 @@ make_monocle3 <- function(seurat_object) {
 }
 
 
-Data1 <- preprocess_cds(Data1, num_dim = 20)
-Data1 <- reduce_dimension(Data1) #UMAP reduce dimension (defalt)
-Data1 = cluster_cells(Data1, k = 7, reduction_method = "UMAP")
-plot_cells(Data1, reduction_method = "UMAP", color_cells_by = "cluster",
-           group_label_size = 6, cell_size = 1.5) #plot by cluster
-Data1 <- align_cds(Data1)
-Data1 <- learn_graph(Data1)
-
-
-plot_cells(Data2, color_cells_by = "pseudotime" )
-plot_cells(Data2, color_cells_by = "seurat_clusters" )
-Data2 <- order_cells(Data1, reduction_method = "UMAP")
+# Data1 <- preprocess_cds(Data1, num_dim = 20)
+# Data1 <- reduce_dimension(Data1) #UMAP reduce dimension (defalt)
+# Data1 = cluster_cells(Data1, k = 7, reduction_method = "UMAP")
+# plot_cells(Data1, reduction_method = "UMAP", color_cells_by = "cluster",
+#            group_label_size = 6, cell_size = 1.5) #plot by cluster
+# Data1 <- align_cds(Data1)
+# Data1 <- learn_graph(Data1)
+#
+#
+# plot_cells(Data2, color_cells_by = "pseudotime" )
+# plot_cells(Data2, color_cells_by = "seurat_clusters" )
+# Data2 <- order_cells(Data1, reduction_method = "UMAP")
