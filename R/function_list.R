@@ -635,7 +635,15 @@ get_liver_marker <- function(n = 20) {
 
 save_list <- function(marker) {
   parse_name <- deparse(substitute(marker))
-  saveRDS(marker, paste0(gene_list_path, parse_name , ".rds"))
+  gene_list_path = c("~/single_cell/single_cell_project/gene_list/", 
+                     "E:/single_cell_project/gene_list/") 
+  for (i in gene_list_path){
+    get_list <- try(saveRDS(marker, paste0(gene_list_path, parse_name , ".rds")), silent = T, )
+    if(class(get_list) != "try-error")break 
+  }
+  
+  
+  
 }
 
 
