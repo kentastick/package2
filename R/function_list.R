@@ -626,7 +626,15 @@ sav <- function(x) {
 
 
 get_liver_marker <- function(n = 20) {
-  liver_marker_list <- readRDS(gene_list_path,"liver_marker_list.rds.rds")
+  gene_list_path = c(#"~/single_cell/single_cell_project/gene_list/",
+    #"E:/single_cell_project/gene_list/",
+    "~/single_cell/package2/test/gene_list/",
+    "E:/single_cell_project/package2/test/gene_list/"
+  )
+  for (i in gene_list_path){
+    liever_marker_list <- try(readRDS(paste0(gene_list_path, parse_name , ".rds")), silent = T)
+    if(class(get_list) != "try-error")break
+  }
   liver_marker_list <- map(liver_marker_list, ~head(., n))
 }
 
