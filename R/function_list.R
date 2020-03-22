@@ -636,7 +636,9 @@ get_liver_marker <- function(n = 20) {
 save_list <- function(marker) {
   parse_name <- deparse(substitute(marker))
   gene_list_path = c("~/single_cell/single_cell_project/gene_list/", 
-                     "E:/single_cell_project/gene_list/") 
+                     #"E:/single_cell_project/gene_list/",
+                     "E:/single_cell_project/package2/test/gene_list/"
+                     ) 
   for (i in gene_list_path){
     get_list <- try(saveRDS(marker, paste0(gene_list_path, parse_name , ".rds")), silent = T, )
     if(class(get_list) != "try-error")break 
@@ -649,7 +651,8 @@ save_list <- function(marker) {
 
 get_list <- function(marker, output = T) {
   gene_list_path = c("~/single_cell/single_cell_project/gene_list/", 
-                     "E:/single_cell_project/gene_list/") 
+                     #"E:/single_cell_project/gene_list/",
+                     "E:/single_cell_project/package2/test/gene_list/") 
   for (i in gene_list_path){
     get_list <- try(readRDS(paste0(i, marker,".rds")), silent = T, )
   if(class(get_list) != "try-error")break 
@@ -660,7 +663,8 @@ get_list <- function(marker, output = T) {
 
 get_list_name <- function() {
   gene_list_path = c("~/single_cell/single_cell_project/gene_list/", 
-                     "E:/single_cell_project/gene_list/") 
+                     #"E:/single_cell_project/gene_list/",
+                     "E:/single_cell_project/package2/test/gene_list/") 
   for (i in gene_list_path){
     res <- try(list.files(path = gene_list_path))
     if(class(get_list) == "try-error") break
