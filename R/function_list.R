@@ -622,9 +622,7 @@ sav <- function(x) {
 
 
 # get gene_list -----------------------------------------------------------
-gene_list_path = "~/single_cell/single_cell_project/gene_list/"
 
-gene_list_path = "E:/single_cell_project/gene_list/"
 
 
 get_liver_marker <- function(n = 20) {
