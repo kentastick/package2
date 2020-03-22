@@ -623,11 +623,9 @@ sav <- function(x) {
 
 # get gene_list -----------------------------------------------------------
 gene_list_path = "~/single_cell/single_cell_project/gene_list/"
-<<<<<<< HEAD
+
 gene_list_path = "E:/single_cell_project/gene_list/"
 
-=======
->>>>>>> f9ab0825b04f20198c96df1eb819ac7e67d9c70b
 
 get_liver_marker <- function(n = 20) {
   liver_marker_list <- readRDS(gene_list_path,"liver_marker_list.rds.rds")
@@ -642,12 +640,24 @@ save_list <- function(marker) {
 
 
 get_list <- function(marker, output = T) {
-  get_list <- readRDS(paste0(gene_list_path, marker,".rds"))
+  gene_list_path = c("~/single_cell/single_cell_project/gene_list/", 
+                     "E:/single_cell_project/gene_list/") 
+  for (i in gene_list_path){
+    get_list <- try(readRDS(paste0(i, marker,".rds")), silent = T, )
+  if(class(get_list) != "try-error")break 
+  }
+  
   if(output)assign(x = marker, value  = get_list, envir =globalenv())
 }
 
 get_list_name <- function() {
-  list.files(path = gene_list_path)
+  gene_list_path = c("~/single_cell/single_cell_project/gene_list/", 
+                     "E:/single_cell_project/gene_list/") 
+  for (i in gene_list_path){
+    res <- try(list.files(path = gene_list_path))
+    if(class(get_list) == "try-error") break
+  }
+  return(res)
 }
 
 
