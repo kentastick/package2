@@ -676,7 +676,7 @@ get_list_ <- function(marker, n_liver_marker) {
 restart <- function(remotes, install_github) {
   remotes::install_github("kentastick/package2")
   detach("package:package2", unload=TRUE)
-  library("package2", lib.loc="~/R/win-library/3.6")
+  #library("package2", lib.loc="~/R/win-library/3.6")
 }
 
 
