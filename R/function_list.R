@@ -622,26 +622,29 @@ sav <- function(x) {
 
 
 # get gene_list -----------------------------------------------------------
+gene_list_path = "~/single_cell/single_cell_project/gene_list/"
+gene_list_path = "E:/single_cell_project/gene_list/"
+
 
 get_liver_marker <- function(n = 20) {
-  liver_marker_list <- readRDS("~/single_cell/single_cell_project/gene_list/liver_marker_list.rds.rds")
+  liver_marker_list <- readRDS(gene_list_path,"liver_marker_list.rds.rds")
   liver_marker_list <- map(liver_marker_list, ~head(., n))
 }
 
 
 save_list <- function(marker) {
   parse_name <- deparse(substitute(marker))
-  saveRDS(marker, paste0("~/single_cell/single_cell_project/gene_list/", parse_name , ".rds"))
+  saveRDS(marker, paste0(gene_list_path, parse_name , ".rds"))
 }
 
 
 get_list <- function(marker, output = T) {
-  get_list <- readRDS(paste0("~/single_cell/single_cell_project/gene_list/", marker,".rds"))
+  get_list <- readRDS(paste0(gene_list_path, marker,".rds"))
   if(output)assign(x = marker, value  = get_list, envir =globalenv())
 }
 
 get_list_name <- function() {
-  list.files(path = "~/single_cell/single_cell_project/gene_list/")
+  list.files(path = gene_list_path)
 }
 
 
