@@ -102,7 +102,7 @@ make_time <- function() {
 
 
 #plot
-up <- function(object = data, label= TRUE) {
+up <- function(object = data, label= TRUE,...) {
   DimPlot(object = object, label = label,...)
 }
 
@@ -623,8 +623,11 @@ sav <- function(x) {
 
 # get gene_list -----------------------------------------------------------
 gene_list_path = "~/single_cell/single_cell_project/gene_list/"
+<<<<<<< HEAD
 gene_list_path = "E:/single_cell_project/gene_list/"
 
+=======
+>>>>>>> f9ab0825b04f20198c96df1eb819ac7e67d9c70b
 
 get_liver_marker <- function(n = 20) {
   liver_marker_list <- readRDS(gene_list_path,"liver_marker_list.rds.rds")
@@ -678,7 +681,7 @@ get_list_ <- function(marker, n_liver_marker) {
 restart <- function(remotes, install_github) {
   remotes::install_github("kentastick/package2")
   detach("package:package2", unload=TRUE)
-  library("package2", lib.loc="~/R/win-library/3.6")
+  #library("package2", lib.loc="~/R/win-library/3.6")
 }
 
 
@@ -839,12 +842,12 @@ ch <- function() {
 
 # subset_modified ---------------------------------------------------------
 
-sub <- function(...) {
-  use_id <- data@meta.data %>% filter(...) %>% pull(id)
-  data <- subset(x = data, cells = use_id)
-  return(data)
-}
-sub2 <- function(object = data, ...) {
+# sub <- function(...) {
+#   use_id <- data@meta.data %>% filter(...) %>% pull(id)
+#   data <- subset(x = data, cells = use_id)
+#   return(data)
+# }
+sub_fil <- function(object = data, ...) {
   use_id <- object@meta.data %>% filter(...) %>% pull(id)
   res <- subset(x = object, cells = use_id)
   return(res)
@@ -998,9 +1001,18 @@ fil_cell <- function(cell_type, remove_cluster = NULL, remove_disease = NULL) {
 
   data[[]] %>% dplyr::select(id,ends_with("_m")) %>% gather(-id,key = "type",value = "value" ) %>%
     group_by(id) %>%  mutate(rank = row_number(-value)) %>% arrange(id,rank) %>%
-    filter(type == paste0(cell_type, "_m"), rank == 1, value>0) %>% pull(id)-> use_id
+    filter(type == paste0(cell_type, "_m"), rank == 1|value>0) %>% pull(id)-> use_id
+  data <- sub_fil(object = data, id %in%use_id, !seurat_clusters %in% remove_cluster, !disease %in% remove_disease)
+}
 
-  data <- sub(id %in%use_id, !seurat_clusters %in% remove_cluster, !disease %in% remove_disease)
+
+fil_cell2 <- function(cell_type) {
+
+  data[[]] %>% dplyr::select(id,ends_with("_m")) %>% gather(-id,key = "type",value = "value" ) %>%
+    group_by(id) %>%  mutate(rank = row_number(-value)) %>% arrange(id,rank) %>%
+    filter(type %in% paste0(cell_type, "_m"), rank == 1, value>0) %>% pull(id)-> use_id
+
+  data <- SubsetData(data, cells = use_id)
 }
 
 
@@ -1068,8 +1080,9 @@ make_venn <- function(df = dirr_test_res) {
 
 #result of findallmarker
 
-get_marker_table <- function(marker_list = marker_list, ...) {
-   marker_list %>% filter(...) %>% dplyr::select(cluster, gene) %>%
+get_marker_table <- function(marker_list, ...) {
+   #filter_var <- enquo(filter_var)
+  marker_list %>% filter(...) %>% dplyr::select(cluster, gene) %>%
     group_by(cluster) %>% nest %>%
     mutate(data = unlist(map(data, ~pull(.x, gene) %>% paste0(., collapse = ", ")))) %>%
     unnest() %>%
@@ -1087,7 +1100,16 @@ get_diff_test_marker <- function(diff_test_res, ...) {
 
 # tile_plot ---------------------------------------------------------------
 
-tile <- function(feature, object = data,...) {
+tile <- function(gene, object = data, order = F, plot_wrap = F, color_label = T, ...) {
+  DefaultAssay(object = object) <- "RNA"
+  if(class(gene) == "list" ){
+    gene <-   fil_gene(gene, object = object)
+    feature <- unlist(gene)
+    label_df <- enframe(gene, name = "label",value = "gene") %>% unnest
+    for_tile_legend_df <<- label_df
+  } else{
+    feature <- fil_gene(gene, object = object)
+  }
   use_id <- pick_id(object = object, ...)
   use_df <- object@assays$RNA@data[feature, use_id]
   cluster_label <- object@meta.data$seurat_clusters
@@ -1100,9 +1122,91 @@ tile <- function(feature, object = data,...) {
   use_df <- use_df %>% tidyr::pivot_longer(-cluster, names_to = "gene", values_to = "logCPM") %>%
     group_by(cluster, gene) %>% summarise(avg_logCPM = mean(logCPM), pct = sum(logCPM>0)/n()) %>%
     group_by(gene) %>% mutate(score = avg_logCPM/max(avg_logCPM))
-  use_df %>% ggplot(aes(cluster, gene, size = pct, colour = score)) + geom_point() +
+  if(class(gene) == "list" ){
+    use_df <- use_df %>% left_join(label_df, by = c("gene"))
+
+
+    use_df <- use_df %>% ungroup() %>%  mutate(gene = fct_relevel(gene, feature))
+
+  }
+  if(order){
+    use_df <- use_df %>% mutate( cluster = fct_reorder(cluster, avg_logCPM))
+  }
+
+  p <- use_df %>% ggplot(aes(cluster, gene, size = pct, colour = score)) + geom_point() +
     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
                            values = c(1.0,0.7,0.6,0.4,0.3,0))
+
+  if(class(gene) == "list"){
+    if(plot_wrap){
+      p <- p + facet_grid(~label)
+    }
+    if(color_label){
+      n <- length(gene)
+      label_color <- gg_color_hue(n)
+      label_color_use <- label_color[as.numeric(plyr::mapvalues(label_df$label, from = unique(label_df$label), to = 1:n))]
+      #label_color_use <- label_color[as.numeric(as.factor(label_df$label))]
+      use_df <- use_df %>% mutate(label_color = label_color[as.numeric(as.factor(label))])
+      p <- use_df %>% ggplot(aes(cluster, gene, size = pct, fill = label, colour = score)) + geom_point() +
+        scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+                               values = c(1.0,0.7,0.6,0.4,0.3,0))
+      p <- p + theme(axis.text.y = element_text(colour = label_color_use)) + scale_fill_manual(values = label_color)
+      pp<<-p
+      return(p)
+    }
+
+
+  }else return(p)
+
+
+}
+
+
+
+
+tile_legend <- function(df = for_tile_legend_df) {
+  n <- length(unique(df$label))
+  df %>% mutate(gene_label = fct_relevel(label, unique(df$label)),color = as.numeric(as.factor(label))) %>%
+    ggplot(aes(gene_label, color, fill = gene_label)) +
+    geom_bar(stat = "identity")+ scale_fill_manual(values = gg_color_hue(n)) + guides(fill = guide_legend(reverse = T))
+}
+
+tile2 <- function(gene, object = data, order =TRUE, ...) {
+  if(class(gene) == "list" ){
+    label_df <- enframe(gene, name = "label",value = "gene") %>% unnest
+    feature <- unlist(gene)
+  } else{
+    feature <- gene
+  }
+
+  use_id <- pick_id(object = object, ...)
+  use_df <-FetchData(object = object, feature, cells = use_id)
+  cluster_label <- object@meta.data$seurat_clusters
+  if(length(feature) ==1){
+    use_df <- use_df %>% as.tibble()
+  }else{
+    use_df <- t(as.matrix(use_df)) %>% as.tibble()
+  }
+   use_df<- use_df %>% add_column(cluster = cluster_label)
+  use_df <- use_df %>% tidyr::pivot_longer(-cluster, names_to = "gene", values_to = "logCPM") %>%
+    group_by(cluster, gene) %>% summarise(avg_logCPM = mean(logCPM), pct = sum(logCPM>0)/n()) %>%
+    group_by(gene) %>% mutate(score = avg_logCPM/max(avg_logCPM))
+  if(class(gene) == "list" ){
+    use_df <- use_df %>% left_join(label_df, by = c("gene"))
+  }
+  if(order){
+    use_df <- use_df %>% mutate( cluster = fct_reorder(cluster, avg_logCPM))
+  }
+
+  p <- use_df %>% ggplot(aes(cluster, fct_relevel(gene,feature), size = pct, colour = score)) + geom_point() +
+    scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+                           values = c(1.0,0.7,0.6,0.4,0.3,0))
+
+  if(class(gene) == "list" ){
+   p + facet_grid(~label)
+  }else return(p)
+
+
 
   }
 #
@@ -1156,3 +1260,63 @@ make_monocle3 <- function(seurat_object) {
 # plot_cells(Data2, color_cells_by = "pseudotime" )
 # plot_cells(Data2, color_cells_by = "seurat_clusters" )
 # Data2 <- order_cells(Data1, reduction_method = "UMAP")
+
+
+
+# filter_gene -------------------------------------------------------------
+
+
+fil_gene <- function(gene, object) {
+  if(class(gene) =="list"){
+    gene <- gene %>% map(., ~.[. %in% rownames(object)])
+    gene <- gene[map(gene, length)>0]
+  }else{
+    gene <- gene[gene %in% rownames(object)]
+  }
+  return(gene)
+}
+
+
+
+
+
+# cor_analysis ------------------------------------------------------------
+
+#arg1:cell_matrix_df, arg2: file_name
+
+get_df <- function(object) {
+  df <- object@assays$RNA@data %>% as.matrix() %>% t() %>% as.data.frame()
+}
+
+do_cor <- function(arg1, arg2, gene) {
+  if(class(arg1) == "Seurat") arg1 <- get_df(arg1)
+  nu <- str_which(colnames(arg1), paste0("^", gene, "$"))
+  all_res <- cor(x = arg1[gene], y = arg1[-nu])
+  all_res_df <- tibble(gene = colnames(all_res), cor = as.numeric(all_res[1,])) %>% arrange(-cor)
+  all_res_df$batch <- arg2
+  all_res_df %>% head(50) %>%
+    ggplot(aes(fct_reorder(gene,cor), cor, fill = gene)) + geom_bar(stat= "identity") + coord_flip() + guides(fill = F)
+  ggsave(filename = paste0(arg2, "_barplot.jpg"), device = "jpeg")
+  return(all_res_df)
+}
+
+
+
+do_cor_KRT7 <- function(arg1, arg2) do_cor(arg1 = arg1, arg2 = arg2, gene = "KRT7")
+
+
+# outer(df[, c(1,3)], df[, c(2,4,5,6)], function(X, Y){
+#   mapply(function(...) cor.test(..., na.action = "na.exclude")$estimate,
+#          X, Y)
+# })
+
+
+
+# color function ----------------------------------------------------------
+
+gg_color_hue <- function(n, l = 65, c = 100) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = l, c = c)[1:n]
+}
+
+#change from clone
