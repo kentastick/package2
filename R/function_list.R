@@ -1055,22 +1055,30 @@ fil_cell2 <- function(cell_type) {
 
 
 
-bar <- function(arg1, arg2, arg3 = NULL,pathname = "pathway_plot") {
+bar <- function(arg1, arg2, arg3 = "cluster", pathname = "pathway_plot") {
 
   if(!dir.exists(pathname)) dir.create(pathname)
   res <- try(barplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T))
-  res
-  ggsave(filename = paste0(pathname, "/", arg3,"_", as.character(arg2), "_enrichplot.jpg"), device = "jpg")
+  if(class(res)=="try-error"){
+    return(NULL)
+  }else res
+    ggsave(filename = paste0(pathname, "/", arg3,"_", as.character(arg2), "_enrichplot.jpg"),
+         device = "jpg", width = 30, height = 30, units = "cm")
   return(res)
 }
 
-cnet <- function(arg1, arg2, arg3 = NULL, pathname = "pathway_plot") {
+cnet <- function(arg1, arg2, arg3 = "cluster", pathname = "pathway_plot") {
   if(!dir.exists(pathname)) dir.create(pathname)
-  res <- try(clusterProfiler::cnetplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T))
+  res <- try(clusterProfiler::cnetplot(x = arg1, title =as.character(arg2),showCategory = 20, supressResult = T))
   res
-  ggsave(filename = paste0(pathname, "/",arg3, "_", as.character(arg2), "_cnetplot.jpg"), device = "jpg")
+  # if(class(res)=="try-error"){
+  #   return(NULL)
+  # }else res
+  ggsave(filename = paste0(pathname, "/", arg3,"_", as.character(arg2), "_cnetplot.jpg"),
+         device = "jpg", width = 30, height = 30, units = "cm")
   return(res)
 }
+
 
 
 
