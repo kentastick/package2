@@ -103,8 +103,17 @@ make_time <- function() {
 
 #plot
 up <- function(object = data, label= TRUE,...) {
-  DimPlot(object = object, label = label,...)
+  DimPlot(object = object, label = label, ...)
 }
+
+upd <- function(label, object = data) {
+  up(object = object, group.by = "disease", pt.size = 2) + gghighlight(str_detect(disease, label ), label_key = T)
+}
+
+upr <- function(label, object = data) {
+  up(object = object, group.by = "reference", pt.size = 2) + gghighlight(str_detect(reference, label ), label_key = T)
+}
+
 
 ups <- function(..., label = TRUE,type = 'png') {
   DimPlot(object = data, label = label,...) %>% plot_save(type = type)
@@ -1069,11 +1078,10 @@ bar <- function(arg1, arg2, arg3 = "cluster", pathname = "pathway_plot") {
 
 cnet <- function(arg1, arg2, arg3 = "cluster", pathname = "pathway_plot") {
   if(!dir.exists(pathname)) dir.create(pathname)
-  res <- try(clusterProfiler::cnetplot(x = arg1, title =as.character(arg2),showCategory = 20, supressResult = T))
-  res
-  # if(class(res)=="try-error"){
-  #   return(NULL)
-  # }else res
+  res <- try(clusterProfiler::cnetplot(x = arg1, title = as.character(arg2),showCategory = 30, supressResult = T))
+   if(class(res)=="try-error"){
+     return(NULL)
+   }else res
   ggsave(filename = paste0(pathname, "/", arg3,"_", as.character(arg2), "_cnetplot.jpg"),
          device = "jpg", width = 30, height = 30, units = "cm")
   return(res)
