@@ -5,8 +5,6 @@ library(Seurat)
 library(clipr)
 library(gghighlight)
 
-
-
 #add signature value to metadata 
 
 df <- sig_val(gene_list = gene_list, object = data)
@@ -559,6 +557,7 @@ data <- add_info(data)
 data <- add_sig_val(data)
 
 data <- fil_cell("Hepatocyte", remove_cluster = c(8, 10, 13), remove_disease = c("BL", "unknown"))
+up()
 data <- sub_fil(data, !disease %in% c("HCC", "ICC"))
 up()
 get_list("segal_list")
@@ -603,6 +602,9 @@ ump(c("Cholangiocyte_m", "Hepatocyte_m", "Cholangiocyte_gm", "Hepatocyte_gm"))
 use_id <- up() %>% CellSelector()
 data <- subset(data, cell = use_id)
 ump(c("Cholangiocyte_m", "Hepatocyte_m", "Cholangiocyte_gm", "Hepatocyte_gm"))
+
+up()
+
 
 
 # macrophage -------------------------------------RNA-------------------------
