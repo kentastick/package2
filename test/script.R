@@ -5,11 +5,13 @@ library(Seurat)
 library(clipr)
 library(gghighlight)
 
+
 #add signature value to metadata 
+
 
 df <- sig_val(gene_list = gene_list, object = data)
 data@meta.data <- data@meta.data %>% rownames_to_column(var = "rowname") %>%
-  bind_cols(df) %>% 
+  bind_cols(df) %>%
   column_to_rownames(var = "rowname")
 
 use_meta_data <- data@meta.data %>% keep(is.numeric) %>% colnames
@@ -22,8 +24,8 @@ tmap(use_meta_data)
 gene_name <-  data@assays$RNA@data@Dimnames[[1]]
 
 
-data@assays$RNA@data %>% as.matrix %>% rowSums() 
-data@assays$RNA@data[unlist(gene_list)[unlist(gene_list) %in% gene_name],] %>% 
+data@assays$RNA@data %>% as.matrix %>% rowSums()
+data@assays$RNA@data[unlist(gene_list)[unlist(gene_list) %in% gene_name],] %>%
   apply(., 1,FUN = mean)
 
 
@@ -91,18 +93,18 @@ use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(no = row_number(-score)) 
 df$cluster <- data@meta.data$seurat_clusters
 
 
-df %>% rownames_to_column("var" = "id") %>% 
-  filter(Hepatocyte> val_mean["Mesenchyme"], cluster %in% use_cluster_no) %>% 
+df %>% rownames_to_column("var" = "id") %>%
+  filter(Hepatocyte> val_mean["Mesenchyme"], cluster %in% use_cluster_no) %>%
   pull(id) -> use_id
 
 #select cells which have hepatocyte value more than 0 and belong to candidate hepatocyte cluster
-# df %>% rownames_to_column("var" = "id") %>% 
-#   filter(Hepatocyte> 0, cluster %in% hepato_cluster_no) %>% 
+# df %>% rownames_to_column("var" = "id") %>%
+#   filter(Hepatocyte> 0, cluster %in% hepato_cluster_no) %>%
 #   pull(id) -> hepato_id2
 
 
 #make subset_object of hepato_id cells
-sub_data <- subset(data, cells = use_id) 
+sub_data <- subset(data, cells = use_id)
 ts(sub_data)
 ggsave(paste0(dir_name[i], "/subset_plot.jpg"))
 tmap(object = sub_data, features =  gene_list[["Mesenchyme"]])
@@ -192,11 +194,11 @@ df_gm <- sig_val(gene_list = gene_list,func = "gm_mean")
 
 #add signature_value (mean, gm_mean) to seurat metadata
 colnames(df_gm) <- paste0(colnames(df),"_gm")
-data@meta.data <- data@meta.data %>% 
-  rownames_to_column(var = "name") %>% bind_cols(df) %>% 
+data@meta.data <- data@meta.data %>%
+  rownames_to_column(var = "name") %>% bind_cols(df) %>%
   column_to_rownames(var = "name")
-data@meta.data <- data@meta.data %>% 
-  rownames_to_column(var = "name") %>% bind_cols(df_gm) %>% 
+data@meta.data <- data@meta.data %>%
+  rownames_to_column(var = "name") %>% bind_cols(df_gm) %>%
   column_to_rownames(var = "name")
 
 ump(c("Hepatocyte_gm", "Hepatocyte",  "Cholangiocyte_gm", "Cholangiocyte"))
@@ -225,7 +227,7 @@ data_list = list.files(pattern = ".rds")
 make_subset(data_list = data_list, "HSC_combined", cell_type = "Mesenchyme", func = "me")
 
 
-#make list of subset_seurat object 
+#make list of subset_seurat object
 
 object_list <- make_list("Mesenchyme")
 
@@ -236,7 +238,7 @@ k.filter <- min(200, min(sapply(object_list, ncol)))
 com <- combined(object.list = object_list, cell_type = "HSC", k.filter = k.filter)
 
 
-#these procedure on combined function 
+#these procedure on combined function
 # object.anchors <- FindIntegrationAnchors(object.list = object_list[c(9, 1:8, 10:11)], k.filter = 10,dims = 1:20)
 # object.combined <- IntegrateData(anchorset = object.anchors, dims = 1:20)
 # DefaultAssay(object.combined) <- "integrated"
@@ -266,7 +268,7 @@ saveRDS(hsc_marker, "hsc_marker.rds")
 
 
 
-#select only mesenchyme cells 
+#select only mesenchyme cells
 
 choose_cell <- up() %>% CellSelector()
 
@@ -275,8 +277,8 @@ saveRDS(data, "hsc_combined_filtered.rds")
 
 
 #cell origin plot
-data@meta.data %>% dplyr::select(seurat_clusters, batch) %>% 
-  pivot_longer(batch,values_to = "batch") %>% 
+data@meta.data %>% dplyr::select(seurat_clusters, batch) %>%
+  pivot_longer(batch,values_to = "batch") %>%
   ggplot(aes(seurat_clusters, fill = batch)) + geom_bar(position = "fill")
 
 pplot("batch")
@@ -284,13 +286,13 @@ pplot("batch_combined")
 
 #filter by signature value
 df <- sig_val(marker = "gene_list", use_func = "mean", filter = T)
-use_id <- df %>% pivot_longer(cols = c(-id, -cluster), names_to = "signature", values_to = "score") %>% 
-  group_by(id) %>% mutate(rank = row_number(-score)) %>% 
+use_id <- df %>% pivot_longer(cols = c(-id, -cluster), names_to = "signature", values_to = "score") %>%
+  group_by(id) %>% mutate(rank = row_number(-score)) %>%
   filter(signature =="Mesenchyme", score!=0) %>% pull(id)
-  
+
 sub_data <-subset(data, cells = use_id)
 DimPlot(sub_data)
-    
+
 
 
 hsc_marker <- FindAllMarkers(sub_data,min.pct = 0.15,  only.pos = T)
@@ -301,15 +303,15 @@ data <- sub_data
 
 #chisq test for
 data$seurat_clusters <- fct_drop(data$seurat_clusters)
-data[[c("batch", "seurat_clusters")]] %>% table() #%>% 
+data[[c("batch", "seurat_clusters")]] %>% table() #%>%
   chisq.test()
 
-#combined batch factor 
+#combined batch factor
 
-label %>% dplyr::select(sample, id = Cell.Barcode)  
+label %>% dplyr::select(sample, id = Cell.Barcode)
 
 data$id <- colnames(data)
-  
+
 data@meta.data %>% filter(str_detect(batch, "^ma_set2"))  %>% pull(id)
   mutate(case = str_extract(id, "\\d{1,2}_\\d{1,2}$")) %>% pull(case) #%>% unique()
   sav(ma_set2)
@@ -317,21 +319,21 @@ data@meta.data %>% filter(str_detect(batch, "^ma_set2"))  %>% pull(id)
   ma_set1$type <- ifelse(str_detect(ma_set1$id, "HCC"), "HCC", "ICC")
   ma_set2$type <- ifelse(str_detect(ma_set2$id, "HCC"), "HCC", "ICC")
   sa
-  
+
   label <- label[c(1,2)]
   label$Cell.Barcode <- paste0(label$Cell.Barcode, "_6")
-  
+
   any(data$id %in% label$Cell.Barcode)
-  
-  data$id <- data@meta.data %>% left_join(label, by = c("id" = "Cell.Barcode")) %>% 
-    mutate(id = if_else(batch =="ma_set1", paste0(Sample, "_", id), as.character(id))) %>% 
+
+  data$id <- data@meta.data %>% left_join(label, by = c("id" = "Cell.Barcode")) %>%
+    mutate(id = if_else(batch =="ma_set1", paste0(Sample, "_", id), as.character(id))) %>%
     pull(id)
-  
-  
-   
+
+
+
 #
-data$disease <- data$batch %>% 
-  fct_collapse(normal_1 = "macpoland", 
+data$disease <- data$batch %>%
+  fct_collapse(normal_1 = "macpoland",
                normal_2 = "aizarani",
                normal_3 = c("chandran_cd45nega_ht", "chandran_cd45posi_ht"),
                foetal = "segal",
@@ -342,11 +344,11 @@ data$disease <- data$batch %>%
 
 data$disease <- data@meta.data %>% mutate(disease = case_when(str_detect(id, "^HCC") ~"HCC",
                                               str_detect(id, "^ICC") ~"ICC",
-                                              TRUE ~ as.character(disease))) %>% pull(disease) 
+                                              TRUE ~ as.character(disease))) %>% pull(disease)
 
 
-data$batch_combined <- data$batch %>% 
-  fct_collapse(Macpoland = "macpoland", 
+data$batch_combined <- data$batch %>%
+  fct_collapse(Macpoland = "macpoland",
                Aizarani = "aizarani",
                Chandran = c("chandran_cd45nega_ht", "chandran_cd45posi_ht", "chandran_cd45nega_ch", "chandran_cd45posi_ch", "ramachandran_blood"),
                Segal = "segal",
@@ -356,7 +358,7 @@ data$batch_combined <- data$batch %>%
 
 
 
-#differential gene expression analysis 
+#differential gene expression analysis
   batch_list <- unique(data$batch)
   marker<- tibble()
   for(i in seq_along(batch_list)){
@@ -367,36 +369,36 @@ data$batch_combined <- data$batch %>%
     marker <- marker %>% bind_rows(temp)
   }
 
-  
+
   res_ref <- diff_test(batch_combined)
-  
+
   saveRDS(marker, "batch_marker.rds")
   saveRDS(res_ref, "batch_reference_marker.rds")
-  
-  
+
+
   #search shared gene or whole gene whithin cluster
-  
-  res_ref %>% filter(p_val_adj < 0.05) %>% group_by(cluster, batch) %>% 
-    nest() %>% mutate(data = map(data, ~pull(., gene))) %>% group_by(cluster) %>% #dplyr::select(-batch) %>% 
+
+  res_ref %>% filter(p_val_adj < 0.05) %>% group_by(cluster, batch) %>%
+    nest() %>% mutate(data = map(data, ~pull(., gene))) %>% group_by(cluster) %>% #dplyr::select(-batch) %>%
     nest() -> df_marker
   df_marker$data
-  
+
   #show as a venn figure
-  
-  df_marker  %>% mutate(data = mIap2(data, cluster, ~zip(df = .x, name = .y) %>% 
+
+  df_marker  %>% mutate(data = mIap2(data, cluster, ~zip(df = .x, name = .y) %>%
                                       VennDiagram::venn.diagram(filename = paste0("cluster_",.[2]), data = .[1], main = .[2])))
-  
-  #function converting df to list  
+
+  #function converting df to list
     zip <- function(df, name) {
       list <- df$data
       names(list) <- df$batch
       res <- list(list, as.character(name))
       return(res)
     }
-    
-    
-  
-    
+
+
+
+
 
 
 
@@ -418,21 +420,21 @@ data <- combined(object.list = object_list, cell_type = "Cholangiocyte", k.filte
 
 data[[]]
 
-data$reference <- data@meta.data %>% mutate(reference = fct_collapse(batch, Macparland = "macpoland", 
+data$reference <- data@meta.data %>% mutate(reference = fct_collapse(batch, Macparland = "macpoland",
                Aizarani = "aizarani",
                RamaChandran = c("chandran_cd45nega_ht", "chandran_cd45posi_ht", "chandran_cd45nega_ch", "chandran_cd45posi_ch", "ramachandran_blood"),
                ours_case1 = "pbc_case1",
-               ours_case2 = "pbc_case2")) %>% 
+               ours_case2 = "pbc_case2")) %>%
   mutate(reference = case_when(str_detect(batch, "fetal|adult")~"Segal",
                                str_detect(batch, "HCC|ICC")~"Ma",
                                TRUE~as.character(reference))) %>% pull(reference)
 
-data$disease <- data@meta.data %>% mutate(disease = fct_collapse(batch,NL_1 = "macpoland", 
+data$disease <- data@meta.data %>% mutate(disease = fct_collapse(batch,NL_1 = "macpoland",
                NL_2 = "aizarani",
                NL_3 = c("chandran_cd45nega_ht", "chandran_cd45posi_ht"),
                CH = c("chandran_cd45nega_ch", "chandran_cd45posi_ch"),
                PBC = c("pbc_case1", "pbc_case2"),
-               BL = "ramachandran_blood")) %>% 
+               BL = "ramachandran_blood")) %>%
   mutate(disease = case_when(str_detect(batch, "fetal")~"FL",
                              str_detect(batch, "adult")~"NL_4",
                              str_detect(batch, "HCC")~"HCC",
@@ -463,7 +465,7 @@ df_segal_list_m <- sig_val(marker = "segal_list") %>% add_m(add = "_m")
 df_segal_list_gm <- sig_val(marker = "segal_list",use_func = "gm_mean") %>% add_m(add = "_gm")
 
 df_com <- list(df_gene_list_m, df_gene_list_gm, df_segal_list_m, df_segal_list_gm) %>% reduce(cbind)
-df_com <- df_com %>% keep(is.numeric) 
+df_com <- df_com %>% keep(is.numeric)
 data <- add_meta(df = df_com)
 data <- add_info(data= data)
 data[[]] %>% colnames
@@ -515,9 +517,9 @@ ggo <- groupGO(gene     = gene,
                readable = TRUE)
 
 
-marker %>% filter(p_val_adj <0.05) %>% group_by(cluster) %>% arrange(cluster,-avg_logFC) %>% dplyr::select(cluster, gene) %>% 
-  nest() %>% mutate(data = map(data, ~pull(., gene))) 
-  
+marker %>% filter(p_val_adj <0.05) %>% group_by(cluster) %>% arrange(cluster,-avg_logFC) %>% dplyr::select(cluster, gene) %>%
+  nest() %>% mutate(data = map(data, ~pull(., gene)))
+
 ts(data, group.by = "reference")  + gghighlight(reference == "Macparland")
 ts(data, group.by = "reference")  + gghighlight(reference == "Our_case1")
 ts(data, group.by = "reference")  + gghighlight(reference == "Our_case2")
@@ -552,58 +554,46 @@ marker <- marker %>% arrange(cluster)
 saveRDS(marker, "hepato_cholangio_marker.rds")
 marker %>% get_marker_table(p_val_adj<0.05)
 
-
+#filter celll
 data <- add_info(data)
 data <- add_sig_val(data)
-
-data <- fil_cell("Hepatocyte", remove_cluster = c(8, 10, 13), remove_disease = c("BL", "unknown"))
-up()
-data <- sub_fil(data, !disease %in% c("HCC", "ICC"))
-up()
-get_list("segal_list")
-tile(gene = segal_list)
-
-ump(paste0(names(gene_list), "_gm"))
+data <- sub_fil(data, !seurat_clusters %in% c(8, 10, 13), !disease %in% c("HCC", "ICC", "BL","unknown"))
 use_id <- up() %>% CellSelector()
+data <- sub_fil(data, id %in% use_id) 
+sa_data(hepato_chombined_filtered)
 
 
-
-
-up(data_hep)
-data_hep <- sub_fil(data_hep,seurat_clusters %in% c(1,3,4,5,11,14,15,16))
-data_hep
-use_id <- up(data_hep) %>% CellSelector()
-data <- sub_fil(data_hep, id %in% use_id, !disease %in% c("HCC", "ICC") )
+#hepato_cubset
+data <- fil_cell("Hepatocyte", remove_cluster = c(0,2,6,7,9,12))
+use_id <- up() %>% CellSelector()
+data <- sub_fil(data, id %in% use_id)
 up()
 sa_data(hepato_subset)
-up()
-tile("KRT7")
-bar_origin("disease")
 
-#krt7 analhysis
-setwd("~/single_cell/single_cell_project/data/Seurat_object/hepato_cholangio/krt7analysis")
 
-up()
-data@assays$RNA@data %>% as.matrix() %>% t() %>% as.tibble() -> all_df
-all_df$batch <- data$reference
-res <- all_df %>% group_by(batch) %>% nest %>% 
-  mutate(result = map2(data, batch, ~do_cor_KRT7(.x, .y)))
-
-data_sub <- sub_fil(data, Cholangiocyte_m ==0)
-Seurat::FetchData(data, c("KRT7"), slot  = "data") ->df
+#KRT7 cor
 
 data@assays$RNA@data["KRT7", ] %>% hist(breaks = 200)
-
-
-data<- add_info(data)
-data<- add_sig_val(data)
-ump(c("Cholangiocyte_m", "Hepatocyte_m", "Cholangiocyte_gm", "Hepatocyte_gm"))
-
+ump(c("Hepatocyte_gm", "Cholangiocyte_gm"))
 use_id <- up() %>% CellSelector()
-data <- subset(data, cell = use_id)
-ump(c("Cholangiocyte_m", "Hepatocyte_m", "Cholangiocyte_gm", "Hepatocyte_gm"))
-
+data <- SetIdent(data, cells = use_id, value = "cholangio_like_cells")
 up()
+cholangio_like_marker <- FindMarkers(data, ident.1 = "cholangio_like_cells", min.pct = 0.2, only.pos = T)
+
+
+marker <- marker_list(marker)
+marker <- do_geneano(marker)
+marker <- marker %>% mutate(barplo = map2(res_enricher, cluster, bar))
+marker <- marker %>% mutate(cnet = map2(res_enricher, cluster, ~cnet(.x, .y)))
+anotation_marker <- marker
+sav(anotation_marker)
+sa_data(hepato_cholangio_combined_filter_3022)
+
+marker_anotation <- marker %>% dplyr::select(cluster, gene_symbol) %>% unnest %>%
+  left_join(a, by = c("gene_symbol" = "ID"))
+marker_anotation %>% write_clip()
+
+up(group.by = "disease") + gghighlight(str_detect(disease, "PBC"), label_key = T)
 
 
 
@@ -698,14 +688,14 @@ get_diff_test_marker(diff_test_res)
 
 df <- make_venn(Tcell_diff_test_res)
 df <- df %>% mutate(data = map(data, ~marker_list_map(.)))
-df <- df %>% 
+df <- df %>%
   mutate(data = map(data, ~do_geneano(., use_func = geneano_enricher, res_name = "res_enricher", gene_type = gene_entrez)))
 
 df <- df %>% mutate(data = map(data, ~mutate(.x, cluster = paste0("cluster_", cluster))))
 df %>% mutate(data = map(data, ~mutate(., bar_plot = pmap(list(arg1 = res_enricher, arg2 = batch, arg3 = cluster), .f = bar))))
 a %>% mutate(data = map(data, ~mutate(., bar_plot = pmap(list(arg1 = res_enricher, arg2 = batch, arg3 = cluster), .f = cnet))))
 
-Tcell_diff_test_res %>% dplyr::select(cluster, data) %>% mutate(data = map(data, ~dplyr::select(.x,batch, gene_symbol))) %>% 
+Tcell_diff_test_res %>% dplyr::select(cluster, data) %>% mutate(data = map(data, ~dplyr::select(.x,batch, gene_symbol))) %>%
   unnest() %>% mutate(gene_symbol = unlist(map(gene_symbol, ~paste0(.x, collapse = ", ")))) %>% write_clip()
 
 
@@ -734,7 +724,7 @@ tmap(c("FCGR3A", "GNLY", "CX3CR"))
 tmap(c("CD3D", "PTPRC"), min.cutoff = 0)
 ILC_marker <- do_diff()
 ILC_marker_list <- marker_list(ILC_marker)
-ILC_marker_list <- ILC_marker_list %>% 
+ILC_marker_list <- ILC_marker_list %>%
   do_geneano(use_func = geneano_enricher, res_name = "res_enricher", gene_type = gene_entrez)
 ILC_marker_list <- ILC_marker_list %>% mutate(bar_plot = map2(res_enricher, cluster, ~bar(.x, .y)))
 ILC_marker_list <- ILC_marker_list %>% mutate(cnet_plot = map2(res_enricher, cluster, ~cnet(.x, .y)))
@@ -745,13 +735,13 @@ sav(ILc_diff_test_res)
 df <- make_venn(ILc_diff_test_res)
 df <- df %>% mutate(data = map(data, ~marker_list_map(.)))
 
-df <- df %>% 
+df <- df %>%
   mutate(data = map(data, ~do_geneano(., use_func = geneano_enricher, res_name = "res_enricher", gene_type = gene_entrez)))
 
 df %>% mutate(data = map(data, ~mutate(bar_plot = map2(res_enricher, batch, ~bar(.x, .y)))))
-  
+
 Tcell_diff_test_res <- diff_test("reference")
-  
+
 Tcell_diff_test_res
 
 # Bcell -------------------------------------------------------------------
@@ -799,7 +789,7 @@ sa_data(Bcell_combined_filtered)
 bcell_marker <- do_diff()
 bcell_marker_list <- marker_list(bcell_marker)
 bcell_marker_list
-bcell_marker_list <- bcell_marker_list %>% 
+bcell_marker_list <- bcell_marker_list %>%
   do_geneano(use_func = geneano_enricher, res_name = "res_enricher", gene_type = gene_entrez)
 bcell_marker_list <- bcell_marker_list %>% mutate(bar_plot = map2(res_enricher, cluster, ~bar(.x, .y)))
 bcell_marker_list <- bcell_marker_list %>% mutate(cnet_plot = map2(res_enricher, cluster, ~cnet(.x, .y)))
