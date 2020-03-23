@@ -570,17 +570,48 @@ data <- sub_fil(data, id %in% use_id)
 up()
 sa_data(hepato_subset)
 
+combined()
 
 #KRT7 cor
 
 data@assays$RNA@data["KRT7", ] %>% hist(breaks = 200)
-ump(c("Hepatocyte_gm", "Cholangiocyte_gm"))
+tmap(c("Cholangiocyte_m", "Hepatocyte_m"))
+use_id <- tmap(c("Cholangiocyte_m")) %>% CellSelector()
+ts()
 use_id <- up() %>% CellSelector()
 data <- SetIdent(data, cells = use_id, value = "cholangio_like_cells")
 up()
 cholangio_like_marker <- FindMarkers(data, ident.1 = "cholangio_like_cells", min.pct = 0.2, only.pos = T)
+cholangio_like_marker %>% View
+tmap("KRT7")
 
+data2 <- sub_fil(data, Cholangiocyte_gm ==0)
 
+data$cholangio_m %>% summary
+data$cholangio_m %>% mean()
+data$Hepatocyte_m %>% mean()
+FetchData(data, vars = "KRT7") %>% ggplot(aes(KRT7)) + geom_histogram(bins = 300)
+
+FetchData(data, vars = "KRT7") %>% .$KRT7 %>% mean
+FetchData(data, vars = "KRT7") %>% .$KRT7 %>%sd
+
+vl(c("Cholangiocyte_gm", "Hepatocyte_gm"))
+vl(c("KRT7"))
+
+DefaultAssay(data) <- "RNA"
+#before remove cholangiocyte_gm cells
+df <- get_df(object = data)
+krt7_cor <- do_cor(arg1 = df, arg2 = "krt7", gene = "KRT7")
+krt7_cor %>% View
+
+#after
+df2 <- get_df(object = data2)
+krt7_cor_2 <- do_cor(arg1 = df2, arg2 = "krt7_2", gene = "KRT7")
+krt7_cor_2 %>% View
+sav(krt7_cor)
+sav(krt7_cor_2)
+
+#pathway analysis
 marker <- marker_list(marker)
 marker <- do_geneano(marker)
 marker <- marker %>% mutate(barplo = map2(res_enricher, cluster, bar))
@@ -588,6 +619,8 @@ marker <- marker %>% mutate(cnet = map2(res_enricher, cluster, ~cnet(.x, .y)))
 anotation_marker <- marker
 sav(anotation_marker)
 sa_data(hepato_cholangio_combined_filter_3022)
+
+
 
 marker_anotation <- marker %>% dplyr::select(cluster, gene_symbol) %>% unnest %>%
   left_join(a, by = c("gene_symbol" = "ID"))
