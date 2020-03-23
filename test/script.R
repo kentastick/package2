@@ -611,6 +611,15 @@ krt7_cor_2 %>% View
 sav(krt7_cor)
 sav(krt7_cor_2)
 
+data$KRT7 <- if_else(df$KRT7 > 0.0843, "KRT7posi", "KRT7nega")
+bar_origin("KRT7") 
+Idents(data) <- "KRT7"
+up(data2)
+ts(data2)
+df2$KRT7 %>% mean
+
+
+
 #pathway analysis
 marker <- marker_list(marker)
 marker <- do_geneano(marker)
