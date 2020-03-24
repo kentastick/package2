@@ -687,10 +687,23 @@ get_list_name <- function() {
                      "E:/single_cell_project/package2/test/gene_list/")
   for (i in gene_list_path){
     res <- try(list.files(path = i))
-    if(class(get_list) == "try-error") break
+    if(length(res) != 0) break
   }
-  return(res)
+  res
 }
+
+
+
+
+#remove duplicated gene in list
+
+remove_list_dup <- function(gene_list) {
+  gene_list <- gene_list %>% unlist() #%>% split(., ngene_listmes(.))
+  gene_list <- gene_list[!duplicated(gene_list)]
+  names(gene_list) <- names(gene_list) %>% str_remove("\\d{1,2}$")
+  gene_list %>% split(., names(.)) %>% map(as.vector)
+}
+
 
 
 
@@ -723,7 +736,7 @@ get_list_ <- function(marker, n_liver_marker) {
 restart <- function(remotes, install_github) {
   remotes::install_github("kentastick/package2")
   detach("package:package2", unload=TRUE)
-  #library("package2", lib.loc="~/R/win-library/3.6")
+  library("package2", lib.loc="~/R/win-library/3.6")
 }
 
 
@@ -899,6 +912,8 @@ sub_fil <- function(object = data, ...) {
 pick_id <- function(..., object =data) {
   object@meta.data %>% filter(...) %>% pull(id)
 }
+
+
 
 
 
@@ -1279,6 +1294,44 @@ tile2 <- function(gene, object = data, order =TRUE, ...) {
 
 
 
+tile3 <- function(gene, object = data, order =TRUE, ...) {
+  if(class(gene) == "list" ){
+    label_df <- enframe(gene, name = "label",value = "gene") %>% unnest
+    feature <- unlist(gene)
+  } else{
+    feature <- gene
+  }
+  use_df <-FetchData(object = object, feature, cells = use_id)
+
+  use_df <- rownames_to_column("id") %>%
+    mutate(id = row_number()) %>%
+    pivot_longer(cols = -id, names_to = "gene", values_to = "log10CPM")
+
+  if(class(gene) == "list" ){
+    use_df <- use_df %>% left_join(label_df, by = c("gene"))
+  }
+  if(order){
+    use_df <- use_df %>% mutate( cluster = fct_reorder(id, log10CPM))
+  }
+
+  p <- use_df %>% ggplot(aes(id, gene, fill = log10CPM)) + geom_tile() +
+    scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+                         values = c(1.0,0.7,0.6,0.4,0.3,0))
+  if(color_label){
+    n <- length(gene)
+    label_color <- gg_color_hue(n)
+    label_color_use <- label_color[as.numeric(plyr::mapvalues(label_df$label, from = unique(label_df$label), to = 1:n))]
+    #label_color_use <- label_color[as.numeric(as.factor(label_df$label))]
+    use_df <- use_df %>% mutate(label_color = label_color[as.numeric(as.factor(label))])
+   p + theme(axis.text.y = element_text(colour = label_color_use)) + scale_fill_manual(values = label_color)
+}
+
+FetchData(data_sub, vars = unlist(segal_list)) %>% rownames_to_column("id") %>%
+  mutate(id = row_number()) %>%
+  pivot_longer(cols = -id, names_to = "gene", values_to = "log10CPM") %>%
+  ggplot(aes(id, gene, fill = log10CPM)) + geom_tile() +
+  scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+                       values = c(1.0,0.7,0.6,0.4,0.3,0))
 
 
 # monocle3 ----------------------------------------------------------------
