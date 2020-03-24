@@ -574,6 +574,13 @@ sa_data(hepato_subset)
 
 combined()
 
+#cholangio_subset
+data <- fil_cell("Cholangiocyte", remove_cluster = c(1,3,4,11,14, 15,16))
+use_id <- up() %>% CellSelector()
+data <- sub_fil(data, id %in% use_id)
+up()
+sa_data(cholangio_subset)
+
 
 #KRT7 cor
 
@@ -740,9 +747,9 @@ marker <- FindMarkers(data, ident.1 = "cholangiocyte_like_hep",ident.2 =  "chola
 marker <-marker %>%  rownames_to_column(var = "gene") %>% mutate(cluster = if_else(avg_logFC>0, "cholangio_like_cell", "cholangiocyte"))
 marker_cholangio_vs_cholangio_like <- marker
 sav(marker_cholangio_vs_cholangio_like)
-marker %>% filter(p_val_adj < 0.05) %>% group_by(cluster) %>% top_n(50, avg_logFC) %>% 
+marker %>% filter(p_val_adj < 0.05) %>% group_by(cluster) %>% top_n(50, avg_logFC) %>%
   filter(cluster == "cholangio_like_cell") %>% pull(gene) %>% write_clip
-marker %>% filter(p_val_adj < 0.05) %>% group_by(cluster) %>% top_n(50, avg_logFC) %>% 
+marker %>% filter(p_val_adj < 0.05) %>% group_by(cluster) %>% top_n(50, avg_logFC) %>%
   filter(cluster == "cholangiocyte") %>% pull(gene) %>% write_clip
 
 marker <- marker %>% filter(p_val_adj < 0.05) %>% group_by(cluster) %>% top_n(50, avg_logFC)
