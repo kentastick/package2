@@ -575,12 +575,25 @@ sa_data(hepato_subset)
 combined()
 
 #cholangio_subset
-data <- fil_cell("Cholangiocyte", remove_cluster = c(1,3,4,11,14, 15,16))
+data <- fil_cell("Cholangiocyte", remove_cluster = c(1,3,4,5, 11,14, 15,16))
+
 use_id <- up() %>% CellSelector()
-data <- sub_fil(data, id %in% use_id)
+
+data <- SetIdent(data, cells = use_id, value = "cluster_far")
+
+use_id <- up() %>% CellSelector()
+data <- SetIdent(data, cells = use_id, value = "new_1")
 up()
-sa_data(cholangio_subset)
-up()
+cholangio_marker <- FindAllMarkers(data, only.pos = T, logfc.threshold = 0.15)
+
+cholangio_marker_fil <- cholangio_marker %>% group_by(cluster) %>% filter(p_val_adj<0.05)
+
+cholangio_marker_anotatioin <- read_delim("cholangio_marker_annotation.txt", delim = "\t")
+
+cholangio_marker_fil <- cholangio_marker_fil %>% left_join(cholangio_marker_anotatioin, by = c("gene" = "ID"))
+
+sav(cholangio_marker_fil)
+
  #new_cell_id
 new_id_1 <- up() %>% CellSelector()
 data <- SetIdent(data, cells = new_id_1, value = "new_cell_1")
