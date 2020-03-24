@@ -719,7 +719,9 @@ up(group.by = "disease") + gghighlight(str_detect(disease, "PBC"), label_key = T
 
 #cholangio vs hepatocyte
 up()
-data$seurat_clusters <- data$seurat_clusters2
+
+data$seurat_clusters2 <- data$seurat_clusters
+
 Idents(data) <- "seurat_clusters"
 up()
 data$cell_type <- data@meta.data  %>% mutate(cell_type = fct_collapse(seurat_clusters, Hepatocyte = c("1","3","4","5","11","14","15","16"),
@@ -730,6 +732,23 @@ up()
 
 marker_hepato_vs_cholangio <- FindAllMarkers(data, only.pos = T)
 
+sav(marker_hepato_vs_cholangio)
+marker_hepato_vs_cholangio %>% group_by(cluster) %>% filter(p_val_adj <0.05) %>% 
+  filter(cluster == "Hepatocyte") %>% pull(gene) %>% write_clip()
+signature_plot()
+
+marker_hepato_vs_cholangio_all <- marker_hepato_vs_cholangio %>% group_by(cluster) %>% 
+  dplyr::select(cluster, gene)
+
+marker_hepato_vs_cholangio_all_list <- marker_hepato_vs_cholangio_top20 %>% nest() %>% 
+  mutate(data = map(data, ~pull(.))) %>% pull(data)
+names(marker_hepato_vs_cholangio_all_list) <- c("Cholangiocyte", "Hepatocyte")
+marker_hepato_vs_cholangio_all_list <- marker_hepato_vs_cholangio_top20_list
+marker_hepato_vs_cholangio_all_list %>% map(~head(., 20)) %>% tile()
+save_list(marker_hepato_vs_cholangio_all_list)
+get_list_name()
+
+tile(marker_hepato_vs_cholangio_top20)
 
 #cholangio_vs cholangio_like_cells
 
