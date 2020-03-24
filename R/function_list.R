@@ -238,7 +238,7 @@ sig_val <- function(object = data, marker = "gene_list", use_func = "mean", labe
       temp <- mt[[names(gene_list)[i]]]
     mt[[names(gene_list)[i]]] <- if_else(temp> val_mean[[i]], temp, 0)
   }
-  mt$cluster <- object[[label_name]]
+  mt$cluster <- object@meta.data[, label_name]
   mt$cell_id <- rownames(mt)
   return(mt)
 }
