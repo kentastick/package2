@@ -6,7 +6,7 @@ library(clipr)
 library(gghighlight)
 
 
-#add signature value to metadata 
+#add signature value to metadata
 
 
 df <- sig_val(gene_list = gene_list, object = data)
@@ -559,7 +559,7 @@ data <- add_info(data)
 data <- add_sig_val(data)
 data <- sub_fil(data, !seurat_clusters %in% c(8, 10, 13), !disease %in% c("HCC", "ICC", "BL","unknown"))
 use_id <- up() %>% CellSelector()
-data <- sub_fil(data, id %in% use_id) 
+data <- sub_fil(data, id %in% use_id)
 sa_data(hepato_chombined_filtered)
 
 
@@ -576,6 +576,10 @@ combined()
 
 data@assays$RNA@data["KRT7", ] %>% hist(breaks = 200)
 tmap(c("Cholangiocyte_m", "Hepatocyte_m"))
+tmap(c("Cholangiocyte_gm", "Hepatocyte_gm"))
+
+data_sub <- sub_fil(object = data, Cholangiocyte_gm>0)
+
 use_id <- tmap(c("Cholangiocyte_m")) %>% CellSelector()
 ts()
 use_id <- up() %>% CellSelector()
@@ -583,9 +587,52 @@ data <- SetIdent(data, cells = use_id, value = "cholangio_like_cells")
 up()
 cholangio_like_marker <- FindMarkers(data, ident.1 = "cholangio_like_cells", min.pct = 0.2, only.pos = T)
 cholangio_like_marker %>% View
+defaultProto
 tmap("KRT7")
+tile("KRT7")
+data_hibrid <- sub_fil(data, Cholangiocyte_gm>0, Hepatocyte_gm>0)
+up(data_hibrid)
+signature_plot("segal_list")
+signature_plot("gene_list")
+
+
 
 data2 <- sub_fil(data, Cholangiocyte_gm ==0)
+tile(segal_list, object = data_hibrid)
+use_id <- pick_id(seurat_clusters == "1", Cholangiocyte_gm >0)
+data <-SetIdent(data, cells = use_id, value = "cholangio_like_hepato")
+data$seurat_custers_2 <- data$seurat_clusters
+data$seurat_clusters <- Idents(data)
+tile(pick_gene("^MUC\\d{1,2}$"))
+
+
+liver_marker_list_20_remove_dup <- remove_list_dup(liver_marker_list_20)
+liver_marker_list_10_remove_dup <- remove_list_dup(liver_marker_list_10)
+save_list(liver_marker_list_20_remove_dup)
+save_list(liver_marker_list_10_remove_dup)
+
+liver_marker <- liver_marker_list_10_remove_dup[names(liver_marker_list_10_remove_dup) %>% str_which("Hep|Chola")]
+save_list(liver_marker)
+
+
+tile(liver_marker)
+tile_legend()
+
+tmap(c("Cholangiocyte_gm", "Cholangiocyte_m", "Hepatocyte_m", "Hepatocyte_gm"))
+ump(c("Cholangiocyte_gm", "Cholangiocyte_m", "Hepatocyte_m", "Hepatocyte_gm"))
+
+krt7_cor$cor %>% hist(., main = "KRT7")
+
+krt7_cor %>% filter(cor > 0.3) %>% nrow
+
+
+#tile map of each cell
+FetchData(data_sub, vars = unlist(segal_list)) %>% rownames_to_column("id") %>%
+  mutate(id = row_number()) %>%
+  pivot_longer(cols = -id, names_to = "gene", values_to = "log10CPM") %>%
+  ggplot(aes(id, gene, fill = log10CPM)) + geom_tile() +
+  scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+                         values = c(1.0,0.7,0.6,0.4,0.3,0))
 
 data$cholangio_m %>% summary
 data$cholangio_m %>% mean()
@@ -612,13 +659,30 @@ sav(krt7_cor)
 sav(krt7_cor_2)
 
 data$KRT7 <- if_else(df$KRT7 > 0.0843, "KRT7posi", "KRT7nega")
-bar_origin("KRT7") 
+bar_origin("KRT7")
 Idents(data) <- "KRT7"
 up(data2)
 ts(data2)
 df2$KRT7 %>% mean
 
+#only normal liver cell
+data <- sub_fil(data, str_detect(disease, "NL"))
+df <- get_df(data)
 
+res_krt7 <- do_cor(arg1 = df, arg2 = "krt7_normal_cell", gene = "KRT7")
+
+
+
+
+krt7_gene <- krt7_cor %>% filter(cor > 0.3) %>% pull(gene)
+krt7_gene <- convert_gene(krt7_gene)
+res <- ReactomePA::enrichPathway(krt7_gene$ENTREZID, pvalueCutoff = 0.5)
+ump()
+
+krt7_cor$cor %>% mean(na.rm = T)
+krt7_cor$cor %>% sd(na.rm = T)
+
+#remove
 
 #pathway analysis
 marker <- marker_list(marker)
@@ -628,6 +692,7 @@ marker <- marker %>% mutate(cnet = map2(res_enricher, cluster, ~cnet(.x, .y)))
 anotation_marker <- marker
 sav(anotation_marker)
 sa_data(hepato_cholangio_combined_filter_3022)
+
 
 
 
