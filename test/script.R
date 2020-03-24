@@ -563,6 +563,8 @@ data <- sub_fil(data, id %in% use_id)
 sa_data(hepato_chombined_filtered)
 
 
+
+
 #hepato_cubset
 data <- fil_cell("Hepatocyte", remove_cluster = c(0,2,6,7,9,12))
 use_id <- up() %>% CellSelector()
@@ -598,7 +600,8 @@ FetchData(data, vars = "KRT7") %>% .$KRT7 %>%sd
 vl(c("Cholangiocyte_gm", "Hepatocyte_gm"))
 vl(c("KRT7"))
 
-DefaultAssay(data) <- "RNA"
+
+
 #before remove cholangiocyte_gm cells
 df <- get_df(object = data)
 krt7_cor <- do_cor(arg1 = df, arg2 = "krt7", gene = "KRT7")
@@ -619,6 +622,10 @@ ts(data2)
 df2$KRT7 %>% mean
 
 
+#
+DefaultAssay(data) <- "RNA"
+data <- sub_fil(data, Cholangiocyte_m ==0)
+
 
 #pathway analysis
 marker <- marker_list(marker)
@@ -636,6 +643,61 @@ marker_anotation <- marker %>% dplyr::select(cluster, gene_symbol) %>% unnest %>
 marker_anotation %>% write_clip()
 
 up(group.by = "disease") + gghighlight(str_detect(disease, "PBC"), label_key = T)
+
+#cholangio vs hepatocyte
+up()
+data$seurat_clusters <- data$seurat_clusters2
+Idents(data) <- "seurat_clusters"
+up()
+data$cell_type <- data@meta.data  %>% mutate(cell_type = fct_collapse(seurat_clusters, Hepatocyte = c("1","3","4","5","11","14","15","16"),
+                                                   cholangiocyte = c("0","2","6","7","9","12"))) %>% pull(cell_type)
+
+Idents(data) <- "cell_type"
+up()
+
+marker_hepato_vs_cholangio <- FindAllMarkers(data, only.pos = T)
+
+
+#cholangio_vs cholangio_like_cells
+
+DefaultAssay(data) <- "RNA"
+cholangio_like_cell_id <- cell_id
+cholangiocyte_id <- cell_id2
+
+sav(cholangio_like_cell_id)
+sav(cholangiocyte_id)
+
+data <- SetIdent(data, cells = cell_id, value = "cholangiocyte_like_hep")
+data <- SetIdent(data, cells = cell_id2, value = "cholangiocyte")
+marker <- FindMarkers(data, ident.1 = "cholangiocyte_like_hep",ident.2 =  "cholangiocyte", min.pct = 0.2)
+
+marker <-marker %>%  rownames_to_column(var = "gene") %>% mutate(cluster = if_else(avg_logFC>0, "cholangio_like_cell", "cholangiocyte"))
+marker_cholangio_vs_cholangio_like <- marker
+sav(marker_cholangio_vs_cholangio_like)
+marker %>% filter(p_val_adj < 0.05) %>% group_by(cluster) %>% top_n(50, avg_logFC) %>% 
+  filter(cluster == "cholangio_like_cell") %>% pull(gene) %>% write_clip
+marker %>% filter(p_val_adj < 0.05) %>% group_by(cluster) %>% top_n(50, avg_logFC) %>% 
+  filter(cluster == "cholangiocyte") %>% pull(gene) %>% write_clip
+
+marker <- marker %>% filter(p_val_adj < 0.05) %>% group_by(cluster) %>% top_n(50, avg_logFC)
+
+marker_ano <- read_delim("cholangiocyte_marker_annotatio.txt", delim = "\t")
+marker_ano2 <- read_delim("cholangio_like_cell_marker_annotation.txt", delim = "\t")
+
+marker_ano %>% colnames
+marker_ano2 %>% colnames
+marker_ano2$COG_ONTOLOGY <- NULL
+marker_com <- rbind(marker_ano, marker_ano2)
+
+marker <- marker %>% left_join(marker_com, by = c("gene" = "ID"))
+marker_cholangio_vs_cholangio_like_anotation <- marker
+sav(marker_cholangio_vs_cholangio_like_anotation)
+
+data$seurat_clusters2 <- data$seurat_clusters
+data$seurat_clusters <- Idents(data)
+signature_plot()
+
+
 
 
 
@@ -922,4 +984,5 @@ sav(endothelia_marker)
 FeaturePlot()
 
 
-# gene ontology -----------------------------------------------------------
+# batch  -----------------------------------------------------------
+
