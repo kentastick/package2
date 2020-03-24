@@ -580,6 +580,13 @@ use_id <- up() %>% CellSelector()
 data <- sub_fil(data, id %in% use_id)
 up()
 sa_data(cholangio_subset)
+up()
+ #new_cell_id
+new_id_1 <- up() %>% CellSelector()
+data <- SetIdent(data, cells = new_id_1, value = "new_cell_1")
+sav(new_id_1)
+
+
 
 
 #KRT7 cor
@@ -733,14 +740,14 @@ up()
 marker_hepato_vs_cholangio <- FindAllMarkers(data, only.pos = T)
 
 sav(marker_hepato_vs_cholangio)
-marker_hepato_vs_cholangio %>% group_by(cluster) %>% filter(p_val_adj <0.05) %>% 
+marker_hepato_vs_cholangio %>% group_by(cluster) %>% filter(p_val_adj <0.05) %>%
   filter(cluster == "Hepatocyte") %>% pull(gene) %>% write_clip()
 signature_plot()
 
-marker_hepato_vs_cholangio_all <- marker_hepato_vs_cholangio %>% group_by(cluster) %>% 
+marker_hepato_vs_cholangio_all <- marker_hepato_vs_cholangio %>% group_by(cluster) %>%
   dplyr::select(cluster, gene)
 
-marker_hepato_vs_cholangio_all_list <- marker_hepato_vs_cholangio_top20 %>% nest() %>% 
+marker_hepato_vs_cholangio_all_list <- marker_hepato_vs_cholangio_top20 %>% nest() %>%
   mutate(data = map(data, ~pull(.))) %>% pull(data)
 names(marker_hepato_vs_cholangio_all_list) <- c("Cholangiocyte", "Hepatocyte")
 marker_hepato_vs_cholangio_all_list <- marker_hepato_vs_cholangio_top20_list
