@@ -218,7 +218,7 @@ abpath <- function(path = clipr::read_clip()) {
 # signature value calcuration ---------------------------------------------
 
 #calculate geometric_mean of each cells
-sig_val <- function(object = data, marker = "gene_list", use_func = "mean", filter = F) {
+sig_val <- function(object = data, marker = "gene_list", use_func = "mean", label_name = "seurat_clusters",filter = F) {
   gene_list <- get_list(marker)
   mt <- object@meta.data
   use_func <- switch (use_func, "mean" = mean, "gm_mean" = gm_mean1)
@@ -238,7 +238,7 @@ sig_val <- function(object = data, marker = "gene_list", use_func = "mean", filt
       temp <- mt[[names(gene_list)[i]]]
     mt[[names(gene_list)[i]]] <- if_else(temp> val_mean[[i]], temp, 0)
   }
-  mt$cluster <- object$seurat_clusters
+  mt$cluster <- object[[label_name]]
   mt$cell_id <- rownames(mt)
   return(mt)
 }
@@ -310,22 +310,21 @@ signature_plot_ <- function(mat_value, use.color = c("#0099FF", "#FAF5F5", "#E32
 
 
 #conduct through calculation in sig_val1, 2 to plot
-signature_plot <- function(marker = "gene_list", object = data, use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
-    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
+signature_plot <- function(marker = "gene_list", object = data, use_func = "mean", label_name = "seurat_clusters", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter, label_name = label_name)
     df <- sig_val2(score_mt = df)
     df %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
                            values = c(1.0,0.7,0.6,0.4,0.3,0))
 }
-signature_plot_within <- function(marker = "gene_list", object = data, use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
-    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
+signature_plot_within <- function(marker = "gene_list", object = data, use_func = "mean", label_name = "seurat_clusters", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter, label_name = label_name)
     df <- sig_val3(score_mt = df)
     df %>% ggplot(aes(signature, cluster, colour =score, size = fraction_of_cells)) + geom_point() +
     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
                            values = c(1.0,0.7,0.6,0.4,0.3,0))
 }
 
-# data.frame to list ------------------------------------------------------
 
 df_to_list <- function(df) {
   df_list <- vector("list", nrow(df))
@@ -347,7 +346,7 @@ df_to_list <- function(df) {
   #execute at seurat_object directory
 #make_subset(data_list = data_list, "HSC_combined", signature = "Mesenchyme", func = "me)
 
-  make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", marker = "gene_list") {
+  make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", marker = "gene_list", label_name = "seurat_clusters") {
 
     #data_list <- data_list[!str_detect(data_list, "posi|blood")] #remove cd45posi(non-parenchyme cells include)
 
@@ -381,7 +380,7 @@ df_to_list <- function(df) {
 
        #signature_plot
 
-      df <- sig_val(marker = marker, object = data, use_func = use_func)
+      df <- sig_val(marker = marker, object = data, use_func = use_func, label_name = label_name)
 
       df2 <- sig_val2(score_mt = df)
 
@@ -785,8 +784,8 @@ diff_test <- function(x, object = data, min.pct = 0.15, min.diff.pct = 0.1, logf
 # plot signature scpre ----------------------------------------------------
 
 
-feature_sig <- function(features = NULL, marker, object = data, use_func = "mean", use_plot = ump,filter = FALSE) {
-  df <- sig_val(marker = marker, use_func = use_func , filter = filter)
+feature_sig <- function(features = NULL, marker, object = data, use_func = "mean", use_plot = ump, label_name = "seurat_clusters", filter = FALSE) {
+  df <- sig_val(marker = marker, use_func = use_func , filter = filter, label_name = label_name)
   df <- df %>% dplyr::select(-cluster, -cell_id)
   object@meta.data <- object@meta.data %>% rownames_to_column(var = "temp") %>%
     bind_cols(df[colnames(df)]) %>% column_to_rownames(var = "temp")
