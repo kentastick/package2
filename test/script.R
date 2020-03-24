@@ -572,6 +572,7 @@ sa_data(hepato_subset)
 
 combined()
 
+
 #KRT7 cor
 
 data@assays$RNA@data["KRT7", ] %>% hist(breaks = 200)
