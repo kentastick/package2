@@ -22,6 +22,7 @@ do_seurat <- function(data) {
   if(!class(data) == "Seurat"){
     object <- CreateSeuratObject(counts = data, project = "object", min.cells = 3, min.features = 200)
   }
+  object <- data
   object[["percent.mt"]] <- PercentageFeatureSet(object, pattern = "^MT-")
   VlnPlot(object, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
   ggsave("plot1.jpg", device = "jpeg")
@@ -1332,7 +1333,7 @@ FetchData(data_sub, vars = unlist(segal_list)) %>% rownames_to_column("id") %>%
   ggplot(aes(id, gene, fill = log10CPM)) + geom_tile() +
   scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
                        values = c(1.0,0.7,0.6,0.4,0.3,0))
-
+}
 
 # monocle3 ----------------------------------------------------------------
 
