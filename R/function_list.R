@@ -19,8 +19,9 @@ list_data <- function() {
 
 
 do_seurat <- function(data) {
-  object <- CreateSeuratObject(counts = data, project = "object", min.cells = 3, min.features = 200)
-
+  if(!class(data) == "Seurat"){
+    object <- CreateSeuratObject(counts = data, project = "object", min.cells = 3, min.features = 200)
+  }
   object[["percent.mt"]] <- PercentageFeatureSet(object, pattern = "^MT-")
   VlnPlot(object, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
   ggsave("plot1.jpg", device = "jpeg")
@@ -62,7 +63,7 @@ do_seurat <- function(data) {
 
 
   #jackstraw analysis
-  object <- JackStraw(object, num.replicate = 100)
+  object <- JackStraw(object, num.replicate = 10)
   object <- ScoreJackStraw(object, dims = 1:20)
 
   JackStrawPlot(object, dims = 1:20)
