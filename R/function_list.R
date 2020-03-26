@@ -1081,7 +1081,7 @@ fil_cell2 <- function(cell_type) {
 bar <- function(arg1, arg2, arg3 = "cluster", pathname = "pathway_plot") {
 
   if(!dir.exists(pathname)) dir.create(pathname)
-  res <- try(barplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T))
+  res <- try(barplot(arg1, title =as.character(arg2),showCategory = 30, supressResult = T))
   if(class(res)=="try-error"){
     return(NULL)
   }else res
@@ -1336,7 +1336,7 @@ FetchData(data_sub, vars = unlist(segal_list)) %>% rownames_to_column("id") %>%
 # monocle3 ----------------------------------------------------------------
 
 make_monocle3 <- function(seurat_object) {
-  uni_matrix <- seurat_object@assays$integrated@data
+  umi_matrix <- seurat_object@assays$integrated@data
   sample_info <- data.frame(seurat_object@meta.data,
                             stringsAsFactors = F)
 
@@ -1347,20 +1347,47 @@ make_monocle3 <- function(seurat_object) {
                            cell_metadata = sample_info,
                            gene_metadata = gene_annotation)
 }
+data$seurat_clusters2 <- data$seurat_clusters
+data$seurat_clusters <- Idents(data)
 
 
-# Data1 <- preprocess_cds(Data1, num_dim = 20)
-# Data1 <- reduce_dimension(Data1) #UMAP reduce dimension (defalt)
-# Data1 = cluster_cells(Data1, k = 7, reduction_method = "UMAP")
-# plot_cells(Data1, reduction_method = "UMAP", color_cells_by = "cluster",
-#            group_label_size = 6, cell_size = 1.5) #plot by cluster
-# Data1 <- align_cds(Data1)
-# Data1 <- learn_graph(Data1)
-#
-#
-# plot_cells(Data2, color_cells_by = "pseudotime" )
-# plot_cells(Data2, color_cells_by = "seurat_clusters" )
-# Data2 <- order_cells(Data1, reduction_method = "UMAP")
+ do_monocle <- function(cds = mono) {
+   cds <- monocle3::preprocess_cds(cds, num_dim = 20)
+   cds <- monocle3::reduce_dimension(cds) #UMAP reduce dimension (defalt)
+   cds = monocle3::cluster_cells(cds, k = 7, reduction_method = "UMAP")
+   monocle3::plot_cells(cds, reduction_method = "UMAP", color_cells_by = "cluster",
+              group_label_size = 6, cell_size = 1.5) #plot by cluster
+   cds <- monocle3::align_cds(cds)
+   cds <- monocle3::learn_graph(cds)
+   monocle3::plot_cells(cds, color_cells_by = "seurat_clusters", group_label_size = 5,  label_leaves = T)
+   return(cds)
+ }
+
+
+ mop <- function(color_cells_by = "cluster", cds = mono, ...) {
+   monocle3::plot_cells(cds = cds, color_cells_by = color_cells_by, group_label_size = 5, label_leaves = T, ...)
+ }
+
+ do_diff <- function(group_cells_by = "cluster", cds = mono, reference_cells =NULL,...) {
+   monocle3::top_markers(cds = cds, group_cells_by= group_cells_by, reference_cells= reference_cells, cores=8, reduction_method = "UMAP", ...)
+ }
+
+ get_earliest_principal_node <- function(cds, time_bin="130-170"){
+   cell_ids <- which(colData(cds)[, "embryo.time.bin"] == time_bin)
+
+   closest_vertex <- cds@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
+   closest_vertex <- as.matrix(closest_vertex[colnames(cds), ])
+   root_pr_nodes <-
+     igraph::V(principal_graph(cds)[["UMAP"]])$name[as.numeric(names(which.max(table(closest_vertex[cell_ids,]))))]
+
+   root_pr_nodes
+ }
+
+
+
+# Data2 <- monocle3::order_cells(Data1, reduction_method = "UMAP")
+# monocle3::plot_cells(Data2, color_cells_by = "pseudotime" )
+
 
 
 

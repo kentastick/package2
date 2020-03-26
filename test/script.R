@@ -594,7 +594,65 @@ cholangio_marker_fil <- cholangio_marker_fil %>% left_join(cholangio_marker_anot
 
 sav(cholangio_marker_fil)
 
- #new_cell_id
+cholangio_marker_fil %>% write_clip()
+
+package2::tile(c("SFRP5", "ASGR1", "CFTR", "NCAM1", "NES", "KRT19", "KRT7", "EPCAM","TACSTD2", "MUC6", "S100P", "CXCL8", "MUC13", "MUC17"))
+
+cholangio_marker <- cholangio_marker %>% marker_list
+cholangio_marker <- cholangio_marker %>% do_geneano(.)
+cholangio_marker <- cholangio_marker %>% mutate(barplo = map2(res_enricher, cluster, bar))
+cholangio_marker <- cholangio_marker %>% mutate(cnet = map2(res_enricher, cluster, ~cnet(.x, .y)))
+
+cholangio_marker <- cholangio_marker %>% mutate(barplo = map2(res_enricher, cluster, bar))
+
+up(group.by = "seurat_clusters")
+
+bar_cluster("disease")
+
+package2::tile("VIM")
+df <- get_df(data)
+res_cor_vim <- do_cor(df, "vimentin", gene = "VIM")
+res_cor_vim$cor %>% hist
+res_cor_vim[1:100,] %>% .$gene %>% write_clip()
+data@meta.data %>% colnames() %>% str_subset("_m$") %>% vl
+sav(res_cor_vim)
+
+res_cor_vim_ano <- read_delim("res_cor_vimentin_100_gene_ano.txt", delim = "\t")
+res_cor_vim_ano_pathway <- read_delim("res_cor_vimentin_100_gene_pathway.txt", delim = "\t")
+res_cor_vim_ano <- res_cor_vim[1:100,] %>% left_join(res_cor_vim_ano, by = c("gene" = "ID"))
+sav(res_cor_vim_ano)
+res_cor_vim_ano %>% write_clip()
+res_cor_vim_ano_pathway %>% write_clip()
+res_cor_vim %>% filter(str_detect(gene , "^FN1"))
+
+
+#remove hepatocyte_like_cells
+data <- sub_fil(data, !seurat_clusters %in% c("cluster_far", "6"))
+sa_data(cholangio_subset_fil)
+
+up()
+
+
+
+ #monocle
+mono <- make_monocle3(data)
+mono <- do_monocle(mono)
+mono_marker <- do_diff(mono, group_cells_by = "seurat_clusters")
+mop(mono, color_cells_by = "seurat_clusters")
+mono_marker
+mono_marker %>% arrange(cell_group, -mean_expression)
+mono[]
+
+
+pr_graph_test_res <- monocle3::graph_test(mono, neighbor_graph="knn", cores=8)
+
+pr_deg_ids <- row.names(subset(pr_graph_test_res, q_value < 0.05),)
+
+gene_module_df <- monocle3::find_gene_modules(mono[pr_deg_ids,], resolution=1e-2)
+
+
+
+#new_cell_id
 new_id_1 <- up() %>% CellSelector()
 data <- SetIdent(data, cells = new_id_1, value = "new_cell_1")
 sav(new_id_1)
