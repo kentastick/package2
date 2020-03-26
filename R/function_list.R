@@ -83,13 +83,12 @@ do_seurat <- function(data) {
   DimPlot(object, reduction = "tsne")
   ggsave("plot9.jpg")
 
-  data <- object
-  rm(object)
-  tmap(c('ALB', 'KRT7', 'CD68', 'CD3D', 'CD79A', 'IGJ','CD34', 'GNLY', 'FGFBP2', 'CD14', "MZB1"))
+  saveRDS(object, "normal.rds")
+
+  tmap(object = object, c('ALB', 'KRT7', 'CD68', 'CD3D', 'CD79A', 'IGJ','CD34', 'GNLY', 'FGFBP2', 'CD14', "MZB1"))
   ggsave("plot10.jpg")
 
 
-  saveRDS(data, "normal.rds")
   return(object)
 }
 
