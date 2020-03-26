@@ -1349,9 +1349,6 @@ make_monocle3 <- function(seurat_object) {
                            cell_metadata = sample_info,
                            gene_metadata = gene_annotation)
 }
-data$seurat_clusters2 <- data$seurat_clusters
-data$seurat_clusters <- Idents(data)
-
 
  do_monocle <- function(cds = mono) {
    cds <- monocle3::preprocess_cds(cds, num_dim = 20)
