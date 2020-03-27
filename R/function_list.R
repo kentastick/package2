@@ -854,13 +854,12 @@ add_sig_val <- function(object = data, marker_list, use_func = "mean") {
 
 
 add_meta_bi <- function(gene, object = data) {
-
   df <- FetchData(object = object, var = gene) %>% rownames_to_column(var = "id")
   gene_m <- df %>% pull(gene) %>%  mean()
   gene_sd <- df %>% pull(gene) %>%  sd()
   cut_off <- gene_m + 2*gene_sd
   colnames(df)[2] <- "temp"
-  use_column <- df %>% dplyr::select(id, temp) %>% mutate(temp= if_else( temp> cut_off, "strong", "ordinary")) %>% dplyr::select(temp)
+  use_column <- df %>% dplyr::select(id, temp) %>% mutate(temp= if_else(temp> cut_off, "strong", "ordinary")) %>% dplyr::select(temp)
   colnames(use_column) <- paste0(gene,"_bin")
   data <- add_meta(df = use_column, object = data)
   data <<- data
