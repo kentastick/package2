@@ -219,7 +219,7 @@ abpath <- function(path = clipr::read_clip()) {
 # signature value calcuration ---------------------------------------------
 
 #calculate geometric_mean of each cells
-sig_val <- function(object = data, marker = "gene_list", use_func = "mean", label_name = "seurat_clusters",filter = F) {
+sig_val <- function(object = data, marker = "gene_list", use_func = "mean", add_id_cluster = T,label_name = "seurat_clusters",filter = F) {
   gene_list <- get_list(marker)
   mt <- object@meta.data
   use_func <- switch (use_func, "mean" = mean, "gm_mean" = gm_mean1)
@@ -239,21 +239,12 @@ sig_val <- function(object = data, marker = "gene_list", use_func = "mean", labe
       temp <- mt[[names(gene_list)[i]]]
     mt[[names(gene_list)[i]]] <- if_else(temp> val_mean[[i]], temp, 0)
   }
-  mt$cluster <- object@meta.data[, label_name]
-  mt$cell_id <- rownames(mt)
+  if(add_id_cluster){
+    mt$cluster <- object@meta.data[, label_name]
+    mt$cell_id <- rownames(mt)
+  }
   return(mt)
 }
-
-# #sig_val + filter
-# filter_cell <- function(marker = "gene_list",  use_func = "mean", object = data) {
-#   gene_list <- get_list(marker = marker)
-#   df <- sig_val(marker = marker, use_func = use_func, object = object)
-#   val_mean <- apply(df, 2, mean)
-#   for(i in seq_along(gene_list))
-#     temp <- df[[names(gene_list)[i]]]
-#   df[[names(gene_list)[i]]] <- if_else(temp> val_mean[[i]], temp, 0)
-#   return(df)
-# }
 
 
 # geometric mean ----------------------------------------------------------
@@ -272,16 +263,6 @@ gm_mean2 = function(x, na.rm=TRUE){
 #make df of each cluster's signature score: each_value/max_value, fraction_rate: expressed_cell(>0)/total_cells
 
 sig_val2 <- function(score_mt) {
-#  gene_list <- get_list(marker = marker)
-#  if(filter){
-#   val_mean <- apply(score_mt, 2, mean) # signature mean
-#   for(i in seq_along(gene_list)){
-#     temp <- score_mt[[names(gene_list)[i]]]
-#     score_mt[[names(gene_list)[i]]] <- if_else(temp> val_mean[[i]], temp, 0)
-#   }
-# }
-#  score_mt$cluster <- object@meta.data %>% .$seurat_clusters
-
 
   score_mt %>% gather(-cluster, -cell_id, key = "signature", value = "score") %>%
     group_by(signature, cluster) %>%
@@ -290,6 +271,8 @@ sig_val2 <- function(score_mt) {
     mutate(max = max(mean)) %>%
     mutate(score = mean/max)
 }
+
+
 sig_val3 <- function(score_mt) {
 
   score_mt %>% gather(-cluster, -cell_id, key = "signature", value = "score") %>%
@@ -797,43 +780,29 @@ feature_sig <- function(features = NULL, marker, object = data, use_func = "mean
 
 
 
-# add meta.data -----------------------------------------------------------
-
-
-add_meta <- function(df, object = data) {
-  object@meta.data <- object@meta.data %>% rownames_to_column(var = "temp") %>%
-    bind_cols(df[colnames(df)]) %>% column_to_rownames(var = "temp")
-  return(object)
-}
-
-add_m <- function(df_list, add = "_m") {
-  colnames(df_list) <- paste0(colnames(df_list), add)
-  return(df_list)
-}
-
-
 
 
 # cell_origin bar plot ----------------------------------------------------
 
-bar_origin <- function(meta_data, object= data) {
-  object@meta.data %>% dplyr::select(seurat_clusters, meta_data) %>%
-    pivot_longer(meta_data,values_to = "batch") %>%
-    ggplot(aes(seurat_clusters, fill = batch)) + geom_bar(position = "fill")
+bar_origin <- function(bar_x, bar_y,object= data) {
+  bar_x <- enquo(bar_x)
+  bar_y <- enquo(bar_y)
+  object@meta.data %>% dplyr::select(!!bar_x, !!bar_y) %>%
+    ggplot(aes(!!bar_x, fill = !!bar_y)) + geom_bar(position = "fill")
 }
 
-bar_cluster <- function(meta_data, object= data) {
-  object@meta.data %>% dplyr::select(seurat_clusters, meta_data) %>%
-    pivot_longer(meta_data,values_to = "batch") %>%
-    ggplot(aes(batch, fill = seurat_clusters)) + geom_bar(position = "fill")
+# meta data modifying function--------------------------------------------------------
+
+
+#meta.data change
+
+id_ch <- function(use_meta, object = data) {
+  Idents(object = object) <- use_meta
+  data <<- object
 }
 
 
-
-
-
-# adding meta info --------------------------------------------------------
-
+#change reference sample_type infomation
 add_info <- function(data) {
   data$reference <- data@meta.data %>% mutate(reference = fct_collapse(batch, Macparland = "macpoland",
                                                                        Aizarani = "aizarani",
@@ -865,16 +834,52 @@ add_info <- function(data) {
 }
 
 
-add_sig_val <- function(object = data) {
-  df_gene_list_m <- sig_val(object = object) %>% add_m(add = "_m")
-  df_gene_list_gm <- sig_val(object = object, use_func = "gm_mean") %>% add_m(add = "_gm")
-  df_segal_list_m <- sig_val(object = object, marker = "segal_list") %>% add_m(add = "_m")
-  df_segal_list_gm <- sig_val(object = object, marker = "segal_list",use_func = "gm_mean") %>% add_m(add = "_gm")
 
-  df_com <- list(df_gene_list_m, df_gene_list_gm, df_segal_list_m, df_segal_list_gm) %>% purrr::reduce(cbind)
+
+#add summarised marker value information
+add_sig_val <- function(object = data, marker_list, use_func = "mean") {
+  df_list <- vector("list", length(marker_list))
+  for(i in seq_along(marker_list)){
+    df_list[[i]] <- sig_val(object = object, marker = marker_list[i], use_func = use_func) %>%
+      add_m(add = switch(use_func, "mean" = "_m", "gm_mean" = "_gm"))
+  }
+
+  df_com <- df_list %>% purrr::reduce(cbind)
+
   df_com <- df_com %>% keep(is.numeric)
+
   object <- add_meta(df = df_com, object = object)
+  data <<- object
 }
+
+
+add_meta_bi <- function(gene, object = data) {
+
+  df <- FetchData(object = object, var = gene) %>% rownames_to_column(var = "id")
+  gene_m <- df %>% pull(gene) %>%  mean()
+  gene_sd <- df %>% pull(gene) %>%  sd()
+  cut_off <- gene_m + 2*gene_sd
+  colnames(df)[2] <- "temp"
+  use_column <- df %>% dplyr::select(id, temp) %>% mutate(temp= if_else( temp> cut_off, "strong", "ordinary")) %>% dplyr::select(temp)
+  colnames(use_column) <- paste0(gene,"_bin")
+  data <- add_meta(df = use_column, object = data)
+  data <<- data
+}
+
+
+
+add_meta <- function(df, object = data) {
+  object@meta.data <- object@meta.data %>% rownames_to_column(var = "temp") %>%
+    bind_cols(df) %>% column_to_rownames(var = "temp")
+  return(object)
+}
+
+add_m <- function(df_list, add = "_m") {
+  colnames(df_list) <- paste0(colnames(df_list), add)
+  return(df_list)
+}
+
+
 
 
 # write smooth ------------------------------------------------------------
@@ -894,6 +899,7 @@ ch <- function() {
 
 
 
+df <- FetchData(data, var = gene) %>% rownames_to_column(var = "id")
 
 # subset_modified ---------------------------------------------------------
 
@@ -912,7 +918,6 @@ sub_fil <- function(object = data, ...) {
 pick_id <- function(..., object =data) {
   object@meta.data %>% filter(...) %>% pull(id)
 }
-
 
 
 
@@ -1412,7 +1417,9 @@ fil_gene <- function(gene, object) {
 
 get_df <- function(object) {
   df <- object@assays$RNA@data %>% as.matrix() %>% t() %>% as.data.frame()
+  df <- df %>% rownames_to_column(var = id)
 }
+
 
 do_cor <- function(arg1, arg2, gene) {
   if(class(arg1) == "Seurat") arg1 <- get_df(arg1)
@@ -1445,4 +1452,19 @@ gg_color_hue <- function(n, l = 65, c = 100) {
   hcl(h = hues, l = l, c = c)[1:n]
 }
 
-#change from clone
+
+# assay type change -------------------------------------------------------
+
+
+rna <- function() {
+  DefaultAssay(object = data) <- "RNA"
+  data <<- data
+}
+integ <- function() {
+  DefaultAssay(object = data) <- "integrated"
+  data <<- data
+}
+
+
+
+

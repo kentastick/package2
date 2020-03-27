@@ -17,7 +17,7 @@ data@meta.data <- data@meta.data %>% rownames_to_column(var = "rowname") %>%
 use_meta_data <- data@meta.data %>% keep(is.numeric) %>% colnames
 tmap(use_meta_data)
 
-
+c
 
 #calculate mean value of each gene within gene_list
 
@@ -609,6 +609,7 @@ up(group.by = "seurat_clusters")
 
 bar_cluster("disease")
 
+#vimentin analysis
 package2::tile("VIM")
 df <- get_df(data)
 res_cor_vim <- do_cor(df, "vimentin", gene = "VIM")
@@ -625,12 +626,40 @@ res_cor_vim_ano %>% write_clip()
 res_cor_vim_ano_pathway %>% write_clip()
 res_cor_vim %>% filter(str_detect(gene , "^FN1"))
 
+vim_gene <- res_cor_vim_ano$gene %>% convert_gene(.)
+res_enrich <- geneano_enricher(gene_entrez = vim_gene$ENTREZID)
+res_enrich %>% barplot(showCategory = 30)
+res_enrich %>% clusterProfiler::cnetplot(showCategory = 30)
+
+geneano_enrichgo()
+res_pathway <- read_delim("res_cor_vimentin_100_gene_pathway.txt", delim = "\t")
+
+data <- add_meta_bi("VIM")
+id_ch("VIM_bin")
+vim_vs <- do_diff()
+sav(vim_vs)
+vim_vs %>% filter(pct.1-pct.2 > 0.2)
+data$VIM %>% table
+id_ch("seurat_clusters")
+vl("VIM")
+
+rna()
+vl(c("KRT19", "CDH1", "TGFB1", "TGFB1R1", "ACTA2", "SNAI1", "SNAI2")) + scale_colour_manual(values = c("blue", "red"))
+
+
+bar_origin(seurat_clusters, VIM) + scale_fill_discrete(c(red = "strong", blue = "ordinary"))
+bar_origin(disease, VIM_bin)
+
+vl("VIM", group.by = "disease")
+
+res_cor_vim_ano %>% head(50) %>% ggplot(aes(fct_reorder(gene, cor),cor, fill = gene)) +
+  geom_bar(stat = "identity") + coord_flip() + guides(fill = F)
 
 #remove hepatocyte_like_cells
 data <- sub_fil(data, !seurat_clusters %in% c("cluster_far", "6"))
 sa_data(cholangio_subset_fil)
 
-up()
+
 
 
 
@@ -1110,7 +1139,7 @@ b <- b %>% mutate(bar2 = map2(res, cluster, ~bar(.x, .y)))
 mesenchyme_marker_list <- mesenchyme_marker_list %>% mutate(cnet = map2(res_enricher, cluster, ~cnet(.x, .y)))
 
 
-# nkt ---------------------------------------------------------------------
+# NKT ---------------------------------------------------------------------
 
 ts()
 ts(group.by = "reference", pt.size = 2) + gghighlight(str_detect(reference, "ours"))
