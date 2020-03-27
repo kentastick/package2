@@ -899,7 +899,6 @@ ch <- function() {
 
 
 
-df <- FetchData(data, var = gene) %>% rownames_to_column(var = "id")
 
 # subset_modified ---------------------------------------------------------
 
