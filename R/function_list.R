@@ -1,19 +1,20 @@
-# data import function ----------------------------------------------------
 
-impdata <- function(name) {
-  rds_list <- list.files(path = "C:/Users/ken/Documents/single_cell/single_cell_analysis/data", pattern = "rds", full.names = T, recursive = T)
-  importdata <- rds_list %>% str_subset(name)
-  if(length(importdata) != 1){
-    print(importdata)
-    stop("more than two duplicated pattern exist")
+
+# data to list ------------------------------------------------------------
+
+df_to_list <- function(df) {
+  df_list <- vector("list", nrow(df))
+  df <- df %>% as.matrix()
+  for (i in 1:nrow(df)) {
+    sub_row <- df[i,]
+    names(sub_row) <- NULL
+    df_list[[i]] <- sub_row
+    names(df_list)[i] <- rownames(df)[i]
   }
-  return(readRDS(importdata))
+  df_list <- map(df_list, ~.[!is.na(.)])
+  return(df_list)
 }
 
-
-list_data <- function() {
-  list.files(path = "C:/Users/ken/Documents/single_cell/single_cell_analysis/data", recursive = T, pattern = ".rds")
-}
 
 # do_seurat ---------------------------------------------------------------
 
@@ -94,7 +95,7 @@ do_seurat <- function(data) {
 
 
 
-# wrapper function --------------------------------------------------------
+#  function --------------------------------------------------------
 
 #create present time as name
 make_time <- function() {
@@ -116,10 +117,6 @@ upr <- function(label, object = data) {
 }
 
 
-ups <- function(..., label = TRUE,type = 'png') {
-  DimPlot(object = data, label = label,...) %>% plot_save(type = type)
-}
-
 ts <- function(object = data, ...) {
   DimPlot(object = object, reduction = 'tsne', label = TRUE, ...)
 }
@@ -128,26 +125,15 @@ tmap <- function(features, object = data, ...) {
   FeaturePlot(features = features,object = object, reduction = 'tsne',  cols = c('lightgray', 'red'), min.cutoff = 0, ...)
 }
 
-tmps <- function(features, object = data, type = 'png') {
-  tmap(features, object = object) %>% plot_save( name = features, type = type)
-}
 
 ump <- function(features, object = data,...) {
   FeaturePlot(features = features,object = object, cols = c('lightgray', 'red'), min.cutoff = 0,...)
 }
 
-umps <- function(features, type = 'png') {
-  ump(features) %>% plot_save(type = type)
-}
 
 vl <- function(...) {
   VlnPlot(object = data,...)
 }
-vls <- function(..., type = 'png') {
-  VlnPlot(object = data,...) %>% plot_save(type = type)
-}
-
-
 
 
 # scraping function -------------------------------------------------------
@@ -172,42 +158,13 @@ get_gene <- function(object = data) {
   object@assays$RNA@data %>% rownames
 }
 
-
-
-# pick up cells by gene value ---------------------------------------------
-
-pick_cell <- function(gene, value) {
-  a <-com@assays$RNA@data[gene,] > value
-  cell_label <- a[a] %>% names()
-  return(cell_label)
-}
-
-
-# make ident class --------------------------------------------------------
-
-
-make_class <- function(gene, value, object = data) {
-  id <- pick_cell(gene, value)
-  object[[]] %>% rownames_to_column(var = "ID") %>%
-    mutate(new_class = if_else(id %in% krt7posi, "positive", "negative")) %>% pull(new_class)
-}
-
-
-# search gene in Seurat object --------------------------------------------
-
-
 search_gene <- function() {
   data@assays$RNA@data@Dimnames[[1]] %>% View
 }
 
-
-# output gene vector searched from seurat object  -------------------------
-
 pick_gene <- function(pattern) {
   data@assays$RNA@data@Dimnames[[1]] %>% str_subset(., pattern =pattern)
 }
-
-
 
 # return absolute path ----------------------------------------------------
 
@@ -218,8 +175,9 @@ abpath <- function(path = clipr::read_clip()) {
 
 # signature value calcuration ---------------------------------------------
 
-#calculate geometric_mean of each cells
+#calculate mean expression of each marker list
 sig_val <- function(object = data, marker = "gene_list", use_func = "mean", add_id_cluster = T,label_name = "seurat_clusters",filter = F) {
+
   gene_list <- get_list(marker)
   mt <- object@meta.data
   use_func <- switch (use_func, "mean" = mean, "gm_mean" = gm_mean1)
@@ -246,7 +204,6 @@ sig_val <- function(object = data, marker = "gene_list", use_func = "mean", add_
   return(mt)
 }
 
-
 # geometric mean ----------------------------------------------------------
 
 gm_mean1 = function(a){prod(a)^(1/length(a))}
@@ -263,7 +220,6 @@ gm_mean2 = function(x, na.rm=TRUE){
 #make df of each cluster's signature score: each_value/max_value, fraction_rate: expressed_cell(>0)/total_cells
 
 sig_val2 <- function(score_mt) {
-
   score_mt %>% gather(-cluster, -cell_id, key = "signature", value = "score") %>%
     group_by(signature, cluster) %>%
     summarise(fraction_of_cells = sum(score>0)/n(), mean = mean(score)) %>%
@@ -293,7 +249,7 @@ signature_plot_ <- function(mat_value, use.color = c("#0099FF", "#FAF5F5", "#E32
 }
 
 
-#conduct through calculation in sig_val1, 2 to plot
+#calculate whithin each gene score normalized by gene across the cluster
 signature_plot <- function(marker = "gene_list", object = data, use_func = "mean", label_name = "seurat_clusters", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
     df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter, label_name = label_name)
     df <- sig_val2(score_mt = df)
@@ -301,6 +257,8 @@ signature_plot <- function(marker = "gene_list", object = data, use_func = "mean
     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
                            values = c(1.0,0.7,0.6,0.4,0.3,0))
 }
+
+#calculate whithin each cluster score normalized by cluster value
 signature_plot_within <- function(marker = "gene_list", object = data, use_func = "mean", label_name = "seurat_clusters", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
     df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter, label_name = label_name)
     df <- sig_val3(score_mt = df)
@@ -310,27 +268,12 @@ signature_plot_within <- function(marker = "gene_list", object = data, use_func 
 }
 
 
-df_to_list <- function(df) {
-  df_list <- vector("list", nrow(df))
-  df <- df %>% as.matrix()
-  for (i in 1:nrow(df)) {
-    sub_row <- df[i,]
-    names(sub_row) <- NULL
-    df_list[[i]] <- sub_row
-    names(df_list)[i] <- rownames(df)[i]
-  }
-  df_list <- map(df_list, ~.[!is.na(.)])
-  return(df_list)
-}
-
-
-
 # pick_up_specific cell type ----------------------------------------------
 
-  #execute at seurat_object directory
+#execute at seurat_object directory
 #make_subset(data_list = data_list, "HSC_combined", signature = "Mesenchyme", func = "me)
 
-  make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", marker = "gene_list", label_name = "seurat_clusters") {
+make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", marker = "gene_list", label_name = "seurat_clusters") {
 
     #data_list <- data_list[!str_detect(data_list, "posi|blood")] #remove cd45posi(non-parenchyme cells include)
 
@@ -432,100 +375,6 @@ df_to_list <- function(df) {
   }
 
 
-  make_subset_ <- function(data_list, save_folda, cell_type, use_func = "mean", marker = "gene_list") {
-
-    #data_list <- data_list[!str_detect(data_list, "posi|blood")] #remove cd45posi(non-parenchyme cells include)
-
-    #dir_name <- data_list %>% str_extract("(?<=\\/)\\S{1,12}(?=.rds)")
-    data_name <- data_list %>% str_extract("\\S{1,20}(?=.rds)")
-    #subset_name <- paste0(dir_name, "_hepato_subset") #hepatocyte extract
-
-    dir_name <- file.path(save_folda, data_name)
-
-    #subset_name <- paste0(data_name, "_hepato_subset") # extract
-    subset_name <- paste0(data_name,"_", paste0(cell_type, collapse = "_")) # extract
-
-    gene_list <- get_list(marker = marker)
-
-    cell_num <- vector()
-    for(i in seq_along(data_list)){
-
-      cat(data_name[i], "executing\n")
-
-      if(!dir.exists(dir_name[i])){
-        dir.create(dir_name[i])
-      }else next
-
-      if(!data_name[i] %in% ls(envir = globalenv())) data <- readRDS(data_list[i])
-
-      if(class(data) != "Seurat") next
-
-       #signature_plot
-
-      df <- sig_val(marker = marker, object = data, use_func = use_func)
-
-      df2 <- sig_val2(score_mt = df)
-
-      signature_plot_(mat_value = df2)
-
-      try(ggsave(filename = paste0(dir_name[i], "/signature_plot.jpg")))
-
-      #calculate mean value of each signature in whole cells.
-      val_mean <- apply(df[names(gene_list)], 2, mean)
-
-       # use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
-       #      group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
-       #      filter(signature == cell_type, n_clu %in% c(1, 2)|n_sig ==1) %>% pull(cluster)
-       #
-       # use_id <- df %>% filter(get(cell_type)> val_mean[cell_type], cluster %in% use_cluster_no) %>%
-       #   pull(cell_id)
-
-       use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
-            group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
-            filter(signature %in% cell_type, n_clu ==1|n_sig ==1,score>0.5) %>% pull(cluster)
-
-       use_id <- df %>% filter(cluster %in% use_cluster_no) %>%
-         pull(cell_id)
-
-
-
-
-      cat("number of cell is ", length(use_id), "\n")
-      cell_num[i] <- length(use_id)
-      names(cell_num)[i] <- data_name[i]
-      if(length(use_id)< 20){
-        cat("cell number is too small. skip procedure\n")
-        next
-      }
-
-      #make subset_object of hepato_id cells
-      sub_data <- subset(data, cells = use_id)
-      ts(object = sub_data)
-      try(ggsave(paste0(dir_name[i], "/subset_plot.jpg")))
-
-      ts(object = data)
-      try(ggsave(paste0(dir_name[i], "/whole_plot.jpg")))
-
-     for(j in seq_along(cell_type)){
-          tmap(object = data, features =  gene_list[[cell_type[j]]])
-          try(ggsave(paste0(dir_name[i], "/whole_feature_plot_", cell_type[j],".jpg"), width = 20, height =20, units =  "cm" ))
-          tmap(object = sub_data, features =  gene_list[[cell_type[j]]])
-          try(ggsave(paste0(dir_name[i], "/feature_plot", cell_type[j],".jpg"), width = 20, height =20, units =  "cm" ))
-          }
-
-
-
-      #save as a hepatocyte_subset object
-
-      saveRDS(sub_data, file = paste0(dir_name[i], "/",subset_name[i],".rds"))
-      saveRDS(cell_num, file = paste0(dir_name[i], "/",subset_name[i],"_cell_num.rds"))
-      assign("cell_num", cell_num,envir = globalenv() )
-
-    }
-
-  }
-
-
 
 
 # combined method ---------------------------------------------------------
@@ -568,7 +417,6 @@ combined <- function(object.list,cell_type = "subset", k.filter = 200) {
 }
 
 
-
 # read all subset data ----------------------------------------------------
 
 make_list <- function(cell_type) {
@@ -591,15 +439,8 @@ load_list <- function(data_list) {
 }
 
 
+# save function -----------------------------------------------------------
 
-# sav <- function(x) {
-#   parse_arg <- substitute(x)
-#   if(is.symbol(parse_arg)){
-#     parse_arg <- deparse(parse_arg)
-#     }
-#   temp <- get(parse_arg)
-#   saveRDS(object = temp, file = paste0(parse_arg, ".rds"))
-# }
 
 sa_data <- function(x) {
   parse_arg <- substitute(x)
@@ -613,8 +454,7 @@ sav <- function(x) {
 }
 
 
-# get gene_list -----------------------------------------------------------
-
+# marker_list functions  -----------------------------------------------------------
 
 
 get_liver_marker <- function(n = 20, output =T) {
@@ -627,7 +467,6 @@ get_liver_marker <- function(n = 20, output =T) {
     liver_marker_list <- try(readRDS(file = paste0(i, "liver_marker_list.rds")), silent = T)
     if(class(liver_marker_list) != "try-error")break
   }
-  a <<- liver_marker_list
   liver_marker_list <- map(liver_marker_list, ~head(., n))
   if(output)assign(x = paste0("liver_marker_list_",n), value  = liver_marker_list, envir =globalenv())
 }
@@ -641,11 +480,9 @@ save_list <- function(marker) {
                      "E:/single_cell_project/package2/test/gene_list/"
                      )
   for (i in gene_list_path){
-    get_list <- try(saveRDS(marker, paste0(i, parse_name , ".rds")), silent = T)
+    saved_list <- try(saveRDS(marker, paste0(i, parse_name , ".rds")), silent = T)
     if(class(get_list) != "try-error")break
   }
-
-
 
 }
 
@@ -658,8 +495,7 @@ get_list <- function(marker, output = T) {
   for (i in gene_list_path){
     get_list <- try(readRDS(paste0(i, marker,".rds")), silent = T)
   if(class(get_list) != "try-error")break
-  }
-
+}
   if(output)assign(x = marker, value  = get_list, envir =globalenv())
 }
 
@@ -676,8 +512,6 @@ get_list_name <- function() {
 }
 
 
-
-
 #remove duplicated gene in list
 
 remove_list_dup <- function(gene_list) {
@@ -688,34 +522,8 @@ remove_list_dup <- function(gene_list) {
 }
 
 
-
-
-get_list_ <- function(marker, n_liver_marker) {
-  gene_list <- switch(marker,
-                      "gene_list" = readRDS("~/single_cell/single_cell_project/gene_list/gene_list.rds"),
-                      "original_list" = readRDS("~/single_cell/single_cell_project/gene_list/original_gene_list.rds"),
-                      "macpoland" = get_liver_marker(n = n_liver_marker))
-  return(gene_list)
-}
-
-
-#list to df
-
-# signature = data.frame(signature = names(gene_list))
-# temp <- vector()
-# for(i in seq_along(gene_list)){
-#   temp[i] <- gene_list[i]
-# }
-#
-# signature$gene <- temp
-
-
-
-
-
-
 # version up package2 -----------------------------------------------------
-###
+
 restart <- function(remotes, install_github) {
   remotes::install_github("kentastick/package2")
   detach("package:package2", unload=TRUE)
@@ -724,21 +532,18 @@ restart <- function(remotes, install_github) {
 
 
 
-# proportion plot -------------------------------------------------------------
 
-pplot <- function(x) {
-  #a <- deparse(substitute(x))
-  data@meta.data %>% dplyr::select(seurat_clusters, x) %>%
-    pivot_longer(x,values_to = "batch") %>%
-    ggplot(aes(seurat_clusters, fill = batch)) + geom_bar(position = "fill")
+# differential gene expression analysis within same sample ----------------
+
+
+#find marker wrapper function
+diff_test <- function(object = data, ...) {
+  FindAllMarkers(object = object, min.pct = 0.25, logfc.threshold = log(2), only.pos = T, ...)
 }
 
 
-
-# differential gene expression analysis within same sample ----------------
-#x
-
-diff_test <- function(x, object = data, min.pct = 0.15, min.diff.pct = 0.1, logfc.threshold = 0.25, ...) {
+#do findmarker per each selected condition
+diff_test_batch <- function(x, object = data, min.pct = 0.15, min.diff.pct = 0.1, logfc.threshold = 0.25, ...) {
   x <- substitute(x)
   if(!is.character(x)){
     x <- deparse(x)
@@ -761,46 +566,73 @@ diff_test <- function(x, object = data, min.pct = 0.15, min.diff.pct = 0.1, logf
   return(marker)
 }
 
-
-
-
-
-# plot signature scpre ----------------------------------------------------
-
-
-feature_sig <- function(features = NULL, marker, object = data, use_func = "mean", use_plot = ump, label_name = "seurat_clusters", filter = FALSE) {
-  df <- sig_val(marker = marker, use_func = use_func , filter = filter, label_name = label_name)
-  df <- df %>% dplyr::select(-cluster, -cell_id)
-  object@meta.data <- object@meta.data %>% rownames_to_column(var = "temp") %>%
-    bind_cols(df[colnames(df)]) %>% column_to_rownames(var = "temp")
-  if(!is.null(features)){
-    use_plot(object = object, features = features)
-  }else use_plot(object = object, features = colnames(df))
+#add entrez id list
+diff_marker_convert <- function(marker_df) {
+  parse_name <- deparse(substitute(marker_df))
+  marker_df %>% group_by(cluster) %>% nest() %>%
+    mutate(gene_symbol = map(data, ~filter(., p_val_adj<0.05) %>% pull(gene))) %>%
+    mutate(gene_entrez_symbol = map(gene_symbol, ~convert_gene(.))) %>%
+    mutate(gene_entrez = map(gene_entrez_symbol, ~pull(., ENTREZID))) %>%
+    mutate(gene_list_entrez = map2(gene_entrez_symbol, data, ~make_gene_list(.x, .y) )) %>%
+    mutate(gene_list_symbol = map2(data, gene_symbol, ~make_gene_list_2(.x, .y))) -> marker_df
+  saveRDS(marker_df, paste0(parse_name, "_list.rds"))
+  return(marker_df)
 }
 
+#sub lutins of diff_marker_convert
 
+make_gene_list <- function(arg1, arg2) {
+  df <-  arg1 %>% left_join(arg2,by = c("SYMBOL" = "gene") )
+  val <- df$avg_logFC
+  entrez_name <- df$ENTREZID
+  names(val) <- entrez_name
+  val <- sort(val, decreasing = T)
+  return(val)
+}
+
+make_gene_list_2 <- function(arg1, arg2) {
+  val <-  arg1 %>% filter(gene %in% arg2) %>% pull(avg_logFC)
+  names(val) <- arg2
+  val <- sort(val, decreasing = T)
+  return(val)
+}
+
+#convert symbol to entrezid
+convert_gene <- function(x) {
+  library(org.Hs.eg.db)
+  res <- try(clusterProfiler::bitr(x, fromType="SYMBOL", toType=c("ENTREZID"), OrgDb="org.Hs.eg.db"))
+
+  return(res)
+}
+
+#
+# marker_list_map <- function(df) {
+#   df %>% mutate(gene_symbol = map(data, ~filter(., p_val_adj <  0.05) %>%
+#                                     pull(gene))) %>%
+#     mutate(gene_entrez_symbol = map(gene_symbol,  ~convert_gene(.))) %>%
+#     mutate(gene_entrez = map(gene_entrez_symbol, ~try(pull(., ENTREZID)))) %>%
+#     mutate(gene_list_entrez = map2(gene_entrez_symbol,data, ~try(make_gene_list(.x, .y)))) %>%
+#     mutate(gene_list_symbol = map2(data, gene_symbol, ~try(make_gene_list_2(.x, .y))))
+# }
 
 
 
 # cell_origin bar plot ----------------------------------------------------
 
-bar_origin <- function(bar_x, bar_y,object= data) {
+bar_origin <- function(bar_x, bar_y,object= data, position = "fill") {
   bar_x <- enquo(bar_x)
   bar_y <- enquo(bar_y)
   object@meta.data %>% dplyr::select(!!bar_x, !!bar_y) %>%
-    ggplot(aes(!!bar_x, fill = !!bar_y)) + geom_bar(position = "fill")
+    ggplot(aes(!!bar_x, fill = !!bar_y)) + geom_bar(position = position)
 }
 
 # meta data modifying function--------------------------------------------------------
 
-
-#meta.data change
-
+#change current cell label
 id_ch <- function(use_meta, object = data) {
   Idents(object = object) <- use_meta
   data <<- object
 }
-
 
 #change reference sample_type infomation
 add_info <- function(data) {
@@ -826,6 +658,13 @@ add_info <- function(data) {
                                str_detect(batch, "ICC")~"ICC",
                                TRUE~as.character(disease))) %>% pull(disease)
 
+
+
+  data$condition  <- data@meta.data %>%
+    mutate(condition = fct_collapse(disease, Healthy = c("NL_1", "NL2", "NL_3"),
+                                    CH = "CH", PBC = c("PBC_1", "PBC_2"),
+                                    )) %>%
+    pull(condition)
   data$id <- rownames(data@meta.data)
 
   return(data)
@@ -834,9 +673,8 @@ add_info <- function(data) {
 }
 
 
+#add summarised marker_list average expression value
 
-
-#add summarised marker value information
 add_sig_val <- function(object = data, marker_list, use_func = "mean") {
   df_list <- vector("list", length(marker_list))
   for(i in seq_along(marker_list)){
@@ -853,7 +691,8 @@ add_sig_val <- function(object = data, marker_list, use_func = "mean") {
 }
 
 
-add_meta_bi <- function(gene, object = data) {
+#add strong/weak value of one gene by specific value
+add_meta_binval <- function(gene, object = data) {
   df <- FetchData(object = object, var = gene) %>% rownames_to_column(var = "id")
   gene_m <- df %>% pull(gene) %>%  mean()
   gene_sd <- df %>% pull(gene) %>%  sd()
@@ -866,11 +705,11 @@ add_meta_bi <- function(gene, object = data) {
 }
 
 
-
+#add meta data of data.frame to seurat object
 add_meta <- function(df, object = data) {
   object@meta.data <- object@meta.data %>% rownames_to_column(var = "temp") %>%
     bind_cols(df) %>% column_to_rownames(var = "temp")
-  return(object)
+  object <<- object
 }
 
 add_m <- function(df_list, add = "_m") {
@@ -881,109 +720,33 @@ add_m <- function(df_list, add = "_m") {
 
 
 
-# write smooth ------------------------------------------------------------
+# subset filter---------------------------------------------------------
 
-
-write_smooth <- function(...) {
-  parse_x <- substitute(...)
-  if(!is.character(parse_x)) parse_x <- deparse(parse_x)
-  return(parse_x)
-}
-
-
-ch <- function() {
-  read_clip() %>% paste0(collapse =  "\\\"\\,\\\"")
-}
-
-
-
-
-
-# subset_modified ---------------------------------------------------------
-
-# sub <- function(...) {
-#   use_id <- data@meta.data %>% filter(...) %>% pull(id)
-#   data <- subset(x = data, cells = use_id)
-#   return(data)
-# }
 sub_fil <- function(object = data, ...) {
   use_id <- object@meta.data %>% filter(...) %>% pull(id)
   res <- subset(x = object, cells = use_id)
   return(res)
 }
 
-
 pick_id <- function(..., object =data) {
   object@meta.data %>% filter(...) %>% pull(id)
 }
 
 
-
-
 # gene annotation analysis ------------------------------------------------
 
+mouse = biomaRt::useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
 
-do_diff <- function(object = data, ...) {
-  FindAllMarkers(object = object, min.pct = 0.25, logfc.threshold = log(1.5), only.pos = T, ...)
+convertMouseGene <- function(x){
+
+  genesV2 = biomaRt::getLDS(attributes = c("mgi_symbol"), filters = "mgi_symbol", values = x , mart = mouse, attributesL = c("hgnc_symbol"), martL = human, uniqueRows=T)
 }
 
-marker_list <- function(marker_df) {
-  parse_name <- deparse(substitute(marker_df))
-  marker_df %>% group_by(cluster) %>% nest() %>%
-    mutate(gene_symbol = map(data, ~filter(., p_val_adj<0.05) %>% pull(gene))) %>%
-    mutate(gene_entrez_symbol = map(gene_symbol, ~convert_gene(.))) %>%
-    mutate(gene_entrez = map(gene_entrez_symbol, ~pull(., ENTREZID))) %>%
-    mutate(gene_list_entrez = map2(gene_entrez_symbol, data, ~make_gene_list(.x, .y) )) %>%
-    mutate(gene_list_symbol = map2(data, gene_symbol, ~make_gene_list_2(.x, .y))) -> marker_df
-  saveRDS(marker_df, paste0(parse_name, "_list.rds"))
-  return(marker_df)
-}
-
-
-marker_list_map <- function(df) {
-  df %>% mutate(gene_symbol = map(data, ~filter(., p_val_adj <  0.05) %>%
-                             pull(gene))) %>%
-    mutate(gene_entrez_symbol = map(gene_symbol,  ~convert_gene(.))) %>%
-    mutate(gene_entrez = map(gene_entrez_symbol, ~try(pull(., ENTREZID)))) %>%
-    mutate(gene_list_entrez = map2(gene_entrez_symbol,data, ~try(make_gene_list(.x, .y)))) %>%
-    mutate(gene_list_symbol = map2(data, gene_symbol, ~try(make_gene_list_2(.x, .y))))
-}
-
-
-v <- function(marker_df) {
-  cat("executing:", deparse(substitute(marker_df)), "\n")
-  marker_df
-
-}
-
-
-make_gene_list <- function(arg1, arg2) {
-  df <-  arg1 %>% left_join(arg2,by = c("SYMBOL" = "gene") )
-  val <- df$avg_logFC
-  entrez_name <- df$ENTREZID
-  names(val) <- entrez_name
-  val <- sort(val, decreasing = T)
-  return(val)
-}
-make_gene_list_2 <- function(arg1, arg2) {
-  val <-  arg1 %>% filter(gene %in% arg2) %>% pull(avg_logFC)
-  names(val) <- arg2
-  val <- sort(val, decreasing = T)
-  return(val)
-}
-
-
-
-convert_gene <- function(x) {
-  library(org.Hs.eg.db)
-  res <- try(clusterProfiler::bitr(x, fromType="SYMBOL", toType=c("ENTREZID"), OrgDb="org.Hs.eg.db"))
-
-  return(res)
-}
 
 #reactomrPA
-geneano_enricher <- function(gene_entrez) {
-  res <- try(ReactomePA::enrichPathway(gene=gene_entrez, pvalueCutoff=0.05, readable=T))
+geneano_enricher <- function(gene_entrez, pvalueCutoff = 0.05, qvalueCutoff = 0.2) {
+  res <- try(ReactomePA::enrichPathway(gene=gene_entrez, pvalueCutoff=pvalueCutoff, ,qvalueCutoff = qvalueCutoff, readable=T))
   #if(class(res)== "try-error")return(NULL)
 }
 
@@ -1049,6 +812,8 @@ do_geneano <- function(marker_df, res_name = "res_enricher",gene_type = gene_ent
 
 
 
+
+
 # filter  -----------------------------------------------------------------
 
 
@@ -1085,7 +850,7 @@ fil_cell2 <- function(cell_type) {
 bar <- function(arg1, arg2, arg3 = "cluster", pathname = "pathway_plot") {
 
   if(!dir.exists(pathname)) dir.create(pathname)
-  res <- try(barplot(arg1, title =as.character(arg2),showCategory = 30, supressResult = T))
+  res <- try(barplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T))
   if(class(res)=="try-error"){
     return(NULL)
   }else res
@@ -1096,7 +861,7 @@ bar <- function(arg1, arg2, arg3 = "cluster", pathname = "pathway_plot") {
 
 cnet <- function(arg1, arg2, arg3 = "cluster", pathname = "pathway_plot") {
   if(!dir.exists(pathname)) dir.create(pathname)
-  res <- try(clusterProfiler::cnetplot(x = arg1, title = as.character(arg2),showCategory = 30, supressResult = T))
+  res <- try(clusterProfiler::cnetplot(x = arg1, title = as.character(arg2),showCategory = 20, supressResult = T))
    if(class(res)=="try-error"){
      return(NULL)
    }else res
@@ -1167,9 +932,11 @@ get_diff_test_marker <- function(diff_test_res, ...) {
 
 # tile_plot ---------------------------------------------------------------
 
-tile <- function(gene, object = data, order = F, plot_wrap = F, color_label = T, ...) {
+tile <- function(gene, object = data, order = F, cluster_label = "seurat_clusters", plot_wrap = F, fil_val= NULL, color_label = T, ...) {
+  #gene <- get_list(gene)
   DefaultAssay(object = object) <- "RNA"
   if(class(gene) == "list" ){
+    gene <- remove_list_dup(gene)
     gene <-   fil_gene(gene, object = object)
     feature <- unlist(gene)
     label_df <- enframe(gene, name = "label",value = "gene") %>% unnest
@@ -1179,7 +946,7 @@ tile <- function(gene, object = data, order = F, plot_wrap = F, color_label = T,
   }
   use_id <- pick_id(object = object, ...)
   use_df <- object@assays$RNA@data[feature, use_id]
-  cluster_label <- object@meta.data$seurat_clusters
+  cluster_label <- object@meta.data[,cluster_label]
   if(length(feature) ==1){
     use_df <- use_df %>% as.tibble()
   }else{
@@ -1188,10 +955,18 @@ tile <- function(gene, object = data, order = F, plot_wrap = F, color_label = T,
    use_df<- use_df %>% add_column(cluster = cluster_label)
   use_df <- use_df %>% tidyr::pivot_longer(-cluster, names_to = "gene", values_to = "logCPM") %>%
     group_by(cluster, gene) %>% summarise(avg_logCPM = mean(logCPM), pct = sum(logCPM>0)/n()) %>%
-    group_by(gene) %>% mutate(score = avg_logCPM/max(avg_logCPM))
+    group_by(gene) %>% mutate(score = avg_logCPM/max(avg_logCPM), m = mean(avg_logCPM))
+
+  if(!is.null(fil_val)) {
+    use_df <- use_df %>% filter(m > fil_val)
+    use_gene <- unique(use_df$gene)
+    label_df <- filter(gene %in% use_gene)
+
+  }
+
   if(class(gene) == "list" ){
     use_df <- use_df %>% left_join(label_df, by = c("gene"))
-
+    a<<- use_df
 
     use_df <- use_df %>% ungroup() %>%  mutate(gene = fct_relevel(gene, feature))
 
@@ -1218,16 +993,13 @@ tile <- function(gene, object = data, order = F, plot_wrap = F, color_label = T,
         scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
                                values = c(1.0,0.7,0.6,0.4,0.3,0))
       p <- p + theme(axis.text.y = element_text(colour = label_color_use)) + scale_fill_manual(values = label_color)
-      pp<<-p
       return(p)
     }
 
 
   }else return(p)
 
-
 }
-
 
 
 
@@ -1369,7 +1141,7 @@ make_monocle3 <- function(seurat_object) {
    monocle3::plot_cells(cds = cds, color_cells_by = color_cells_by, group_label_size = 5, label_leaves = T, ...)
  }
 
- do_diff <- function(group_cells_by = "cluster", cds = mono, reference_cells =NULL,...) {
+ do_diff_mono <- function(group_cells_by = "cluster", cds = mono, reference_cells =NULL,...) {
    monocle3::top_markers(cds = cds, group_cells_by= group_cells_by, reference_cells= reference_cells, cores=8, reduction_method = "UMAP", ...)
  }
 
@@ -1406,42 +1178,31 @@ fil_gene <- function(gene, object) {
 }
 
 
-
-
-
 # cor_analysis ------------------------------------------------------------
-
-#arg1:cell_matrix_df, arg2: file_name
 
 get_df <- function(object) {
   df <- object@assays$RNA@data %>% as.matrix() %>% t() %>% as.data.frame()
-  df <- df %>% rownames_to_column(var = id)
+  #df <- df %>% rownames_to_column(var = "id")
 }
 
-
-do_cor <- function(arg1, arg2, gene) {
-  if(class(arg1) == "Seurat") arg1 <- get_df(arg1)
-  nu <- str_which(colnames(arg1), paste0("^", gene, "$"))
-  all_res <- cor(x = arg1[gene], y = arg1[-nu])
+do_cor <- function(expr_df, gene, group_label = "subset", method = "pearson") {
+  nu <- str_which(colnames(expr_df), paste0("^", gene, "$"))
+  all_res <- cor(x = expr_d[gene], y = expr_df[-nu], method = method)
   all_res_df <- tibble(gene = colnames(all_res), cor = as.numeric(all_res[1,])) %>% arrange(-cor)
-  all_res_df$batch <- arg2
+  all_res_df$batch <- group_label
   all_res_df %>% head(50) %>%
     ggplot(aes(fct_reorder(gene,cor), cor, fill = gene)) + geom_bar(stat= "identity") + coord_flip() + guides(fill = F)
-  ggsave(filename = paste0(arg2, "_barplot.jpg"), device = "jpeg")
+  ggsave(filename = paste0(group_label, "_barplot.jpg"), device = "jpeg")
   return(all_res_df)
 }
 
 
 
-do_cor_KRT7 <- function(arg1, arg2) do_cor(arg1 = arg1, arg2 = arg2, gene = "KRT7")
-
-
-# outer(df[, c(1,3)], df[, c(2,4,5,6)], function(X, Y){
-#   mapply(function(...) cor.test(..., na.action = "na.exclude")$estimate,
-#          X, Y)
-# })
-
-
+do_cor_test <- function(expr_df) {
+  outer(expr_df[, c(1)], expr_df[, c(2,4)], function(X, Y){
+    mapply(function(...) cor.test(..., na.action = "na.exclude")$estimate,X, Y)
+  })
+}
 
 # color function ----------------------------------------------------------
 
@@ -1463,6 +1224,13 @@ integ <- function() {
   data <<- data
 }
 
+
+
+# write_count_table -------------------------------------------------------
+
+wrt_c_tab <- function(data) {
+  data$disease %>% table %>% as.data.frame() %>% t() %>% write_clip
+}
 
 
 
