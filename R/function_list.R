@@ -735,11 +735,10 @@ pick_id <- function(..., object =data) {
 
 # gene annotation analysis ------------------------------------------------
 
-mouse = biomaRt::useMart("ensembl", dataset = "mmusculus_gene_ensembl")
-human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
 
 convertMouseGene <- function(x){
-
+  mouse = biomaRt::useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+  human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
   genesV2 = biomaRt::getLDS(attributes = c("mgi_symbol"), filters = "mgi_symbol", values = x , mart = mouse, attributesL = c("hgnc_symbol"), martL = human, uniqueRows=T)
 }
 
