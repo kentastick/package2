@@ -321,6 +321,24 @@ use_id <- up() %>% CellSelector()
 data <- sub_fil(data, id %in% use_id)
 sa_data(hepato_chombined_filtered)
 
+
+#HCC ICC contain
+data <- add_info(data)
+data <- sub_fil(data, !seurat_clusters %in% c(8, 10, 13), !disease %in% c("BL","unknown"))
+data <- sub_fil(data, !seurat_clusters %in% c(1,3,4,5, 11,14, 15,16))
+data <- sub_fil(data, seurat_clusters != 6)
+
+
+use_id <- up() %>% CellSelector()
+
+data <-sub_fil(data, id %in% use_id)
+sa_data(cholangio_ICC)
+
+upd("ICC")
+
+
+
+
 #hepato_cubset
 data <- fil_cell("Hepatocyte", remove_cluster = c(0,2,6,7,9,12))
 use_id <- up() %>% CellSelector()

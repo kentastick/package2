@@ -187,12 +187,12 @@ label %>% colnames
 sample_name <- label$Sample %>% unique() %>% as.character()
 
 #set1
-label$Sample <- label$Sample %>% plyr::mapvalues(from = sample_name, 
+label$Sample <- label$Sample %>% plyr::mapvalues(from = sample_name,
                                  to = c("HCC_1", "HCC_2", "HCC_3", "ICC_1", "ICC_2", "HCC_4", "ICC_3", "HCC_5", "ICC_4", "HCC_6","HCC_7", "ICC_5"))
 
 sample_name
 #set2
-label$Sample <- label$Sample %>% plyr::mapvalues(from = sample_name, 
+label$Sample <- label$Sample %>% plyr::mapvalues(from = sample_name,
                                  to = c("HCC_8", "ICC_6", "ICC_7", "ICC_8", "ICC_9", "HCC_9", "ICC_10"))
 
 identical(colnames(ma_set2), as.character(label$Cell.Barcode))
@@ -490,9 +490,9 @@ for(i in seq_along(headname)){
   temp_cells1 <- paste0(headname[i],"_", temp_cells1)
   temp_cells1 <- gsub("-","_",temp_cells1)
   temp_cells <- c(temp_cells,temp_cells1)
-  raw1<-readMM(paste0(headname[i],"_matrix.mtx.gz")) 
+  raw1<-readMM(paste0(headname[i],"_matrix.mtx.gz"))
   eb_raw <- cbind(eb_raw,raw1)
-  
+
 }
 
 eb_raw<-eb_raw[,2:ncol(eb_raw)]
@@ -502,7 +502,7 @@ rownames(eb_raw) <- temp_genes1[,2]
 #Remove duplicated gene names (a couple genes are in under their MGI and HGNC symbols)
 temp_r <- rownames(eb_raw)[which(duplicated(toupper(rownames(eb_raw))))]
 temp_r <- lapply(temp_r,function(X) grep(paste0("^",X,"$"),rownames(eb_raw),ignore.case=T))
-temp_r <- which(rownames(eb_raw) %in% 
+temp_r <- which(rownames(eb_raw) %in%
                   names(sapply(temp_r,function(X) which.min(apply(eb_raw[X,],1,function(Y) sum(Y>0))))))
 if (length(temp_r) > 0) { eb_raw <- eb_raw[-temp_r,] }
 print(temp_r)
@@ -637,7 +637,7 @@ data <- read.csv(file = "C:/Users/ken/Documents/single_cell/single_cell_project/
 rownames(data) <- data[[1]]
 data <- data[-1]
 
-#ensembl id to symbol 
+#ensembl id to symbol
 
 #remove ercc
 ensemblsIDS <- rownames(data)
@@ -647,11 +647,11 @@ ensemblsIDS %>% length
 ensemblsIDS <- ensemblsIDS[-ercc_nu]
 ensemblsIDS %>% length
 ensemblsIDS <- ensemblsIDS %>% str_extract(".*(?=\\.\\d{1,})")
-ensemblsIDS %>% duplicated() %>% which() 
+ensemblsIDS %>% duplicated() %>% which()
 
 #remove ercc_data from original matrix
 data <- data[-ercc_nu,]
-rownames(data) %>% length 
+rownames(data) %>% length
 ensemblsIDS %>% length
 rownames(data) <- ensemblsIDS
 
@@ -667,7 +667,7 @@ unlist(symbols) %>% length
 identical(ensemblsIDS, gene_id)
 
 gene_symbol <- unlist(symbols) %>% as.character()
-rownames(data)[1:length(gene_symbol)] <- gene_symbol 
+rownames(data)[1:length(gene_symbol)] <- gene_symbol
 
 #biomaRT method
 library("biomaRt")
@@ -677,7 +677,7 @@ res2 <- getBM(attributes = c(
                             'external_gene_name',
                             'hgnc_symbol',
                             'ensembl_gene_id'),
-             filters = 'ensembl_gene_id', 
+             filters = 'ensembl_gene_id',
              values = ensemblsIDS,
              mart = ensembl)
 
@@ -692,29 +692,29 @@ res2 <- res2 %>% dplyr::select(gene = external_gene_name, id = ensembl_gene_id)
 # non_detected_gene
 # #convert at https://www.biotools.fr/mouse/ensembl_symbol_converter
 # conv_non_detected_gene <- read_clip_tbl(header = F)
-# 
+#
 # #detct overwrap between two
-# over_wrap_gene <- intersect(res2$gene, conv_non_detected_gene$gene) 
-# 
-# #filter only gene converted 
+# over_wrap_gene <- intersect(res2$gene, conv_non_detected_gene$gene)
+#
+# #filter only gene converted
 # conv_non_detected_gene <- conv_non_detected_gene %>% filter(!is.na(V2))
-# conv_non_detected_gene <- conv_non_tedetected_gene %>% dplyr::select(gene = V2, id = V1) %>% 
+# conv_non_detected_gene <- conv_non_tedetected_gene %>% dplyr::select(gene = V2, id = V1) %>%
 #   filter(!gene %in% over_wrap_gene)
-# 
+#
 # conv_non_detected_gene$gene %>% duplicated() %>% which %>% conv_non_detected_gene$gene[.]
-# 
+#
 # res2 %>% nrow #56840
 # #no shared gene for confirmation
 # any(res2$id %in% non_detected_gene)
-# 
+#
 # #combine two detected data frame
-# 
+#
 # res <- res2 %>% bind_rows(conv_non_detected_gene)
-# 
+#
 # res$gene %>% duplicated() %>% which %>% res$gene[.]
-# 
-# 
-# 
+#
+#
+#
 
  a <- tibble(id = rownames(data)) %>% left_join(as.tibble(res2), by = "id") %>% pull(gene)
 
@@ -722,11 +722,11 @@ detected_row <- which(!is.na(a))
 data <- data[detected_row,]
  data<- as.matrix(data)
  rownames(data) <- a[detected_row]
- 
-#remove_duplicated row 
+
+#remove_duplicated row
 temp_r <- rownames(data)[which(duplicated(rownames(data)))]
 temp_r <- lapply(temp_r,function(X) grep(paste0("^",X,"$"),rownames(data),ignore.case=T))
-temp_r <- which(rownames(data) %in% 
+temp_r <- which(rownames(data) %in%
                   names(sapply(temp_r,function(X) which.min(apply(data[X,],1,function(Y) sum(Y>0))))))
 
 if (length(temp_r) > 0) { data <- data[-temp_r,] }
@@ -832,7 +832,7 @@ rownames(expr_mat_fil) <- correspond_table$HGNC.symbol
 
 temp_r <- rownames(expr_mat_fil)[which(duplicated(toupper(rownames(expr_mat_fil))))]
 temp_r <- lapply(temp_r,function(X) grep(paste0("^",X,"$"),rownames(expr_mat_fil),ignore.case=T))
-temp_r <- which(rownames(expr_mat_fil) %in% 
+temp_r <- which(rownames(expr_mat_fil) %in%
                   names(sapply(temp_r,function(X) which.min(apply(expr_mat_fil[X,],1,function(Y) sum(Y>0))))))
 if (length(temp_r) > 0) { expr_mat_fil <- expr_mat_fil[-temp_r,] }
 
@@ -842,18 +842,19 @@ data <- do_seurat(data = expr_mat_fil)
 #use homolog table
 a <- read.table("HOM_MouseHumanSequence.rpt", header = T, sep = "\t")
 a <- a %>% mutate(orig = case_when(Common.Organism.Name == "mouse, laboratory"~"mouse",
-                              TRUE~"human")) %>% 
+                              TRUE~"human")) %>%
   dplyr::select(id = HomoloGene.ID, orig, symbol = Symbol)
-a %>% group_by(id) %>% mutate(n = n()) %>% filter(n ==2) %>% 
-  dplyr::select(-n) %>% 
-  mutate(symbol = as.character(symbol)) %>% 
+a %>% group_by(id) %>% mutate(n = n()) %>% filter(n ==2) %>%
+  dplyr::select(-n) %>%
+  mutate(symbol = as.character(symbol)) %>%
   pivot_wider(names_from = orig,  values_from = symbol) ->b
  b <- b %>% mutate_all(as.character)
+
 
  expr_mat <- read.table("Liver2_dge.txt", header = T, sep = " ")
  sav(expr_mat)
 expr_mat_fil2 <- expr_mat[rownames(expr_mat) %in% b$mouse, ]
-expr_mat_fil2 %>% rownames %>% View 
+expr_mat_fil2 %>% rownames %>% View
 
 label <- tibble(rowname = rownames(expr_mat_fil2))
 label <- label %>% left_join(b, by = c("rowname" = "mouse"))
