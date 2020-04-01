@@ -6,38 +6,7 @@ library(clipr)
 library(gghighlight)
 
 
-#add signature value to metadata
-
-
-df <- sig_val(gene_list = gene_list, object = data)
-data@meta.data <- data@meta.data %>% rownames_to_column(var = "rowname") %>%
-  bind_cols(df) %>%
-  column_to_rownames(var = "rowname")
-
-use_meta_data <- data@meta.data %>% keep(is.numeric) %>% colnames
-tmap(use_meta_data)
-
-
-#calculate mean value of each gene within gene_list
-
-gene_name <-  data@assays$RNA@data@Dimnames[[1]]
-
-
-data@assays$RNA@data %>% as.matrix %>% rowSums()
-data@assays$RNA@data[unlist(gene_list)[unlist(gene_list) %in% gene_name],] %>%
-  apply(., 1,FUN = mean)
-
-
-
-df %>% gather(-cluster, key = "signature", value = "value") %>%
-  ggplot(aes(cluster, value)) + geom_jitter() + facet_wrap(~signature)
-
-
-
-
-
 # extract specific cells from each seurat object ------------------------------
-
 
 #list up of analysis data name
 data_list <- list.files(pattern = ".rds")
@@ -53,8 +22,6 @@ dir_name <- file.path("HSC_combined", data_name)
 #subset_name <- paste0(data_name, "_hepato_subset") # extract
 subset_name <- paste0(data_name, "_mesencyme_subset") # extract
 
-
-i = 1
 for(i in seq_along(data_list)[3:4]){
 
 data <- readRDS(data_list[i])
@@ -1134,4 +1101,10 @@ FeaturePlot()
 
 
 # batch  -----------------------------------------------------------
+
+
+make_subset()
+
+
+
 

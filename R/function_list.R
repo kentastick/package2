@@ -18,12 +18,12 @@ df_to_list <- function(df) {
 
 # do_seurat ---------------------------------------------------------------
 
-
 do_seurat <- function(data) {
   if(!class(data) == "Seurat"){
     object <- CreateSeuratObject(counts = data, project = "object", min.cells = 3, min.features = 200)
+  }else{
+    object <- data
   }
-  object <- data
   object[["percent.mt"]] <- PercentageFeatureSet(object, pattern = "^MT-")
   VlnPlot(object, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
   ggsave("plot1.jpg", device = "jpeg")
