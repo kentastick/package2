@@ -334,9 +334,19 @@ use_id <- up() %>% CellSelector()
 data <-sub_fil(data, id %in% use_id)
 sa_data(cholangio_ICC)
 
+data <- SetIdent(data, cells = use_id, value = "add_1")
+data$seurat_clusters2 <- data$seurat_clusters
+data$seurat_clusters <- Idents(data)
+
 upd("ICC")
+cholangio_marker <- diff_test_batch(disease)
 
-
+cholangio_marker
+cholangio_marker %>% filter(batch == "ICC") %>% write_clip
+data_icc<- sub_fil(data, disease == "ICC")
+up(data_icc)
+tile(gene = c("SFRP5", "ASGR1", "CFTR", "CD24", "NCAM1", "NES", "KRT19", "KRT7", "EPCAM","TACSTD2", "MUC6", "S100P", "CXCL8", "MUC13", "MUC17"),
+     object = data)
 
 
 #hepato_cubset

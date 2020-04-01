@@ -543,7 +543,7 @@ diff_test <- function(object = data, ...) {
 
 
 #do findmarker per each selected condition
-diff_test_batch <- function(x, object = data, min.pct = 0.15, min.diff.pct = 0.1, logfc.threshold = 0.25, ...) {
+diff_test_batch <- function(x, object = data, min.pct = 0.1, min.diff.pct = 0.1, logfc.threshold = 0.25, only.pos =T, ...) {
   x <- substitute(x)
   if(!is.character(x)){
     x <- deparse(x)
@@ -555,7 +555,7 @@ diff_test_batch <- function(x, object = data, min.pct = 0.15, min.diff.pct = 0.1
     use_id <- rownames(object@meta.data[pull(object@meta.data, x) == batch_list[i],])
     sub_temp <- SubsetData(object, cells = use_id)
     temp <- FindAllMarkers(object = sub_temp, min.pct = min.pct, min.diff.pct = min.diff.pct,
-                           logfc.threshold = logfc.threshold, ...)
+                           logfc.threshold = logfc.threshold, only.pos = only.pos,  ...)
 
     if(nrow(temp)==0)next
 
