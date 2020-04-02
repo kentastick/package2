@@ -1093,6 +1093,9 @@ sav(marker_16)
 
 get_marker_table(nkt_marker, p_val_adj < 0.05)
 
+up()
+signature_plot()
+signature_plot_within()
 
 
 # endothelia --------------------------------------------------------------
@@ -1119,9 +1122,6 @@ FeaturePlot()
 
 
 # batch  -----------------------------------------------------------
-
-
-make_subset()
 
 
 
