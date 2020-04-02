@@ -317,7 +317,8 @@ make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", mar
       try(ggsave(filename = paste0(dir_name[i], "/signature_plot.jpg")))
 
       #calculate mean value of each signature in whole cells.
-      val_mean <- apply(df[names(gene_list)], 2, mean)
+      #val_mean <- apply(df[names(gene_list)], 2, mean)
+    
 
        # use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
        #      group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
@@ -330,11 +331,10 @@ make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", mar
             group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
             filter(signature %in% cell_type, n_clu ==1|n_sig ==1,score>0.5) %>% pull(cluster)
 
-       df <- df %>% filter(cluster %in% use_cluster_no) 
-       for(j in seq_along(cell_type)){
-         df <- df %>% filter(get(cell_type[j])> val_mean[j])
-       }
-       use_id <- pull(df, cell_id)
+       use_id <- df %>% filter(cluster %in% use_cluster_no) %>% pull(cell_id)
+       # for(j in seq_along(cell_type)){
+       #   df <- df %>% filter(get(cell_type[j])> val_mean[cell_type[j]])
+       # }
        
        
       # if(length(use_id)<100){
