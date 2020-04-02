@@ -184,6 +184,7 @@ sig_val <- function(object = data, marker = "gene_list", use_func = "mean", add_
   count_mt <- object@assays$RNA@data
   gene_name <- rownames(count_mt)
   gene_list <- purrr::map(gene_list, ~.[. %in% gene_name])
+  gene_list <- gene_list[map(gene_list, length)>1]
   for(i in seq_along(gene_list)){
     sub_mt <- count_mt[gene_list[[i]],]
     value <- apply(sub_mt,2, use_func)
@@ -284,7 +285,7 @@ make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", mar
     dir_name <- file.path(save_folda, data_name)
 
     #subset_name <- paste0(data_name, "_hepato_subset") # extract
-    subset_name <- paste0(data_name,"_", cell_type) # extract
+    subset_name <- paste0(data_name,"_", paste0(cell_type,collapse = "")) # extract
 
     gene_list <- get_list(marker = marker)
 
@@ -330,8 +331,8 @@ make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", mar
             filter(signature %in% cell_type, n_clu ==1|n_sig ==1,score>0.5) %>% pull(cluster)
 
        df <- df %>% filter(cluster %in% use_cluster_no) 
-       for(i in seq_along(cell_type)){
-         df <- df %>% filter(get(cell_type[i])> val_mean[i])
+       for(j in seq_along(cell_type)){
+         df <- df %>% filter(get(cell_type[j])> val_mean[j])
        }
        use_id <- pull(df, cell_id)
        
