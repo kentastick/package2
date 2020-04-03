@@ -176,7 +176,7 @@ abpath <- function(path = clipr::read_clip()) {
 # signature value calcuration ---------------------------------------------
 
 #calculate mean expression of each marker list
-sig_val <- function(object = data, marker = "gene_list", use_func = "mean", add_id_cluster = T,label_name = "seurat_clusters",filter = F) {
+sig_val <- function(object = data, marker = "gene_list", use_func = "mean", add_id_cluster = T,filter = F) {
 
   gene_list <- get_list(marker)
   mt <- object@meta.data
@@ -199,7 +199,8 @@ sig_val <- function(object = data, marker = "gene_list", use_func = "mean", add_
     mt[[names(gene_list)[i]]] <- if_else(temp> val_mean[[i]], temp, 0)
   }
   if(add_id_cluster){
-    mt$cluster <- object@meta.data[, label_name]
+    #mt$cluster <- object@meta.data[, label_name]
+    mt$cluster <- object@active.ident
     mt$cell_id <- rownames(mt)
   }
   return(mt)
@@ -251,17 +252,34 @@ signature_plot_ <- function(mat_value, use.color = c("#0099FF", "#FAF5F5", "#E32
 
 
 #calculate whithin each gene score normalized by gene across the cluster
-signature_plot <- function(marker = "gene_list", object = data, use_func = "mean", label_name = "seurat_clusters", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
-    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter, label_name = label_name)
+signature_plot <- function(marker = "gene_list", object = data, use_func = "mean", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
     df <- sig_val2(score_mt = df)
     df %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
                            values = c(1.0,0.7,0.6,0.4,0.3,0))
 }
+# signature_tile <- function(marker = "gene_list", object = data, use_func = "mean", label_name = "seurat_clusters", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+#     df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter, label_name = label_name)
+#     df <- sig_val2(score_mt = df)
+#     df %>% ggplot(aes(cluster, signature, fill = score)) + geom_tile(color = "white") +
+#     scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+#                            values = c(1.0,0.7,0.6,0.4,0.3,0))
+# }
+
+signature_tile <- function(marker = "gene_list", object = data, use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
+    df <- sig_val2(score_mt = df)
+    df %>% ggplot(aes(cluster, signature, fill = score)) + geom_tile(color = "black") +
+    #scale_fill_gradient2(low = "blue",  mid = "white", high = "red", midpoint = 0.5)
+     scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+                            values = c(1.0,0.7,0.6,0.4,0.3,0))
+}
+
 
 #calculate whithin each cluster score normalized by cluster value
-signature_plot_within <- function(marker = "gene_list", object = data, use_func = "mean", label_name = "seurat_clusters", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
-    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter, label_name = label_name)
+signature_plot_within <- function(marker = "gene_list", object = data, use_func = "mean", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
     df <- sig_val3(score_mt = df)
     df %>% ggplot(aes(signature, cluster, colour =score, size = fraction_of_cells)) + geom_point() +
     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
@@ -274,7 +292,7 @@ signature_plot_within <- function(marker = "gene_list", object = data, use_func 
 #execute at seurat_object directory
 #make_subset(data_list = data_list, "HSC_combined", signature = "Mesenchyme", func = "me)
 
-make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", marker = "gene_list", label_name = "seurat_clusters") {
+make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", marker = "gene_list") {
 
     #data_list <- data_list[!str_detect(data_list, "posi|blood")] #remove cd45posi(non-parenchyme cells include)
 
@@ -308,7 +326,7 @@ make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", mar
 
        #signature_plot
 
-      df <- sig_val(marker = marker, object = data, use_func = use_func, label_name = label_name)
+      df <- sig_val(marker = marker, object = data, use_func = use_func)
 
       df2 <- sig_val2(score_mt = df)
 
@@ -318,7 +336,7 @@ make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", mar
 
       #calculate mean value of each signature in whole cells.
       #val_mean <- apply(df[names(gene_list)], 2, mean)
-    
+
 
        # use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
        #      group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
@@ -335,8 +353,8 @@ make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", mar
        # for(j in seq_along(cell_type)){
        #   df <- df %>% filter(get(cell_type[j])> val_mean[cell_type[j]])
        # }
-       
-       
+
+
       # if(length(use_id)<100){
       #   use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
       #     group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
@@ -351,10 +369,10 @@ make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", mar
         cat("cell number is too small. skip procedure\n")
         next
       }
-      
+
       #make subset_object of hepato_id cells
       sub_data <- subset(data, cells = use_id)
-    
+
       ts(object = sub_data)
       try(ggsave(filename = paste0(dir_name[i], "/subset_plot.jpg")))
 
@@ -1225,6 +1243,7 @@ gg_color_hue <- function(n, l = 65, c = 100, randam =F) {
 
 color_randam <- function(color_vec, n) {
   randam_vec <- vector(length = n)
+  set.seed(100)
   randam_vec[seq(1,n,2)] <- color_vec[sample(seq(1,n,2), replace = F)]
   randam_vec[seq(2,n,2)] <- color_vec[sample(seq(2,n,2), replace = F)]
   color_vec <- randam_vec
