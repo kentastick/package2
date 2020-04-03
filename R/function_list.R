@@ -619,11 +619,16 @@ convert_gene <- function(x) {
 
 # cell_origin bar plot ----------------------------------------------------
 
-bar_origin <- function(bar_x, bar_y,object= data, position = "fill") {
+bar_origin <- function(bar_x, bar_y,object= data, position = "fill", randam = T) {
   bar_x <- enquo(bar_x)
   bar_y <- enquo(bar_y)
-  object@meta.data %>% dplyr::select(!!bar_x, !!bar_y) %>%
+  p <- object@meta.data %>% dplyr::select(!!bar_x, !!bar_y) %>%
     ggplot(aes(!!bar_x, fill = !!bar_y)) + geom_bar(position = position)
+  if(randam){
+    n_color <- object@meta.data %>% select(!!bar_y) %>% n_distinct()
+   p <- p +scale_fill_manual(values = gg_color_hue(n = n_color, randam = T))
+  }
+  print(p)
 }
 
 # meta data modifying function--------------------------------------------------------
@@ -1205,10 +1210,23 @@ do_cor_test <- function(expr_df) {
 
 # color function ----------------------------------------------------------
 
-gg_color_hue <- function(n, l = 65, c = 100) {
+gg_color_hue <- function(n, l = 65, c = 100, randam =F) {
   hues = seq(15, 375, length = n + 1)
-  hcl(h = hues, l = l, c = c)[1:n]
+  color_vec <- hcl(h = hues, l = l, c = c)[1:n]
+
+  if(randam){
+   color_vec <- color_randam(color_vec = color_vec, n = n)
+  }
+  return(color_vec)
 }
+
+color_randam <- function(color_vec, n) {
+  randam_vec <- vector(length = n)
+  randam_vec[seq(1,n,2)] <- color_vec[sample(seq(1,n,2), replace = F)]
+  randam_vec[seq(2,n,2)] <- color_vec[sample(seq(2,n,2), replace = F)]
+  color_vec <- randam_vec
+}
+
 
 
 # assay type change -------------------------------------------------------
