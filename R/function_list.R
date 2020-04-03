@@ -184,6 +184,7 @@ sig_val <- function(object = data, marker = "gene_list", use_func = "mean", add_
   count_mt <- object@assays$RNA@data
   gene_name <- rownames(count_mt)
   gene_list <- purrr::map(gene_list, ~.[. %in% gene_name])
+  gene_list <- gene_list[map(gene_list, length)>1]
   for(i in seq_along(gene_list)){
     sub_mt <- count_mt[gene_list[[i]],]
     value <- apply(sub_mt,2, use_func)
@@ -284,7 +285,7 @@ make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", mar
     dir_name <- file.path(save_folda, data_name)
 
     #subset_name <- paste0(data_name, "_hepato_subset") # extract
-    subset_name <- paste0(data_name,"_", cell_type) # extract
+    subset_name <- paste0(data_name,"_", paste0(cell_type,collapse = "")) # extract
 
     gene_list <- get_list(marker = marker)
 
@@ -316,7 +317,8 @@ make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", mar
       try(ggsave(filename = paste0(dir_name[i], "/signature_plot.jpg")))
 
       #calculate mean value of each signature in whole cells.
-      val_mean <- apply(df[names(gene_list)], 2, mean)
+      #val_mean <- apply(df[names(gene_list)], 2, mean)
+    
 
        # use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
        #      group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
@@ -327,20 +329,20 @@ make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", mar
 
        use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
             group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
-            filter(signature == cell_type, n_clu ==1|n_sig ==1,score>0.5) %>% pull(cluster)
+            filter(signature %in% cell_type, n_clu ==1|n_sig ==1,score>0.5) %>% pull(cluster)
 
-       use_id <- df %>% filter(get(cell_type)> val_mean[cell_type], cluster %in% use_cluster_no) %>%
-         pull(cell_id)
-
-      if(length(use_id)<100){
-        use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
-          group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
-          filter(signature == cell_type, n_clu %in% c(1,2)|n_sig %in% c(1)) %>% pull(cluster)
-        use_id <- df %>% filter(get(cell_type)> val_mean[cell_type], cluster %in% use_cluster_no) %>%
-          pull(cell_id)
-
-      }
-
+       use_id <- df %>% filter(cluster %in% use_cluster_no) %>% pull(cell_id)
+       # for(j in seq_along(cell_type)){
+       #   df <- df %>% filter(get(cell_type[j])> val_mean[cell_type[j]])
+       # }
+       
+       
+      # if(length(use_id)<100){
+      #   use_cluster_no <- df2 %>% group_by(cluster) %>% mutate(n_clu = row_number(-score)) %>%
+      #     group_by(signature) %>% mutate(n_sig = row_number(-mean)) %>%
+      #     filter(signature == cell_type, n_clu %in% c(1,2)|n_sig %in% c(1)) %>% pull(cluster)
+      #   use_id <- pull(df, cell_id)
+      # }
 
       cat("number of cell is ", length(use_id), "\n")
       cell_num[i] <- length(use_id)
@@ -349,20 +351,21 @@ make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", mar
         cat("cell number is too small. skip procedure\n")
         next
       }
-
+      
       #make subset_object of hepato_id cells
       sub_data <- subset(data, cells = use_id)
+    
       ts(object = sub_data)
-      try(ggsave(paste0(dir_name[i], "/subset_plot.jpg")))
+      try(ggsave(filename = paste0(dir_name[i], "/subset_plot.jpg")))
 
       ts(object = data)
-      try(ggsave(paste0(dir_name[i], "/whole_plot.jpg")))
+      try(ggsave(filename = paste0(dir_name[i], "/whole_plot.jpg")))
 
-      tmap(object = data, features =  gene_list[[cell_type]])
-      try(ggsave(paste0(dir_name[i], "/whole_feature_plot.jpg"), width = 20, height =20, units =  "cm" ))
+      tmap(object = data, features =  unlist(gene_list[cell_type]))
+      try(ggsave(filename = paste0(dir_name[i], "/whole_feature_plot.jpg"), width = 20, height =20, units =  "cm" ))
 
-      tmap(object = sub_data, features =  gene_list[[cell_type]])
-      try(ggsave(paste0(dir_name[i], "/feature_plot.jpg"), width = 20, height =20, units =  "cm" ))
+      tmap(object = sub_data, features =  unlist(gene_list[cell_type]))
+      try(ggsave(filename = paste0(dir_name[i], "/feature_plot.jpg"), width = 20, height =20, units =  "cm" ))
 
       #save as a hepatocyte_subset object
 

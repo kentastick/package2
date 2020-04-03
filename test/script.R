@@ -184,8 +184,11 @@ ts()
 
 
 # hepatocyte and cholangiocyte --------------------------------------------
+
 data_list <- list.files(pattern = ".rds")
+
 data_list
+
 
 
 make_subset_(data_list = data_list, cell_type = c("Hepatocyte", "Cholangiocyte"), save_folda = "hepato_cholangio")
@@ -1131,7 +1134,7 @@ sav(endothelia_marker)
 FeaturePlot()
 
 
-# batch  -----------------------------------------------------------
+#   -----------------------------------------------------------
 
 
 
