@@ -957,7 +957,7 @@ get_diff_test_marker <- function(diff_test_res, ...) {
 
 # tile_plot ---------------------------------------------------------------
 
-tile <- function(gene, object = data, order = F, cluster_label = "seurat_clusters", plot_wrap = F, fil_val= NULL, color_label = T, ...) {
+tile <- function(gene, object = data, order = F, plot_wrap = F, fil_val= NULL, color_label = T, ...) {
   #gene <- get_list(gene)
   DefaultAssay(object = object) <- "RNA"
   if(class(gene) == "list" ){
@@ -971,7 +971,8 @@ tile <- function(gene, object = data, order = F, cluster_label = "seurat_cluster
   }
   use_id <- pick_id(object = object, ...)
   use_df <- object@assays$RNA@data[feature, use_id]
-  cluster_label <- object@meta.data[,cluster_label]
+  #cluster_label <- object@meta.data[,cluster_label]
+  cluster_label <- object@active.ident
   if(length(feature) ==1){
     use_df <- use_df %>% as.tibble()
   }else{
@@ -1267,8 +1268,8 @@ integ <- function() {
 
 # write_count_table -------------------------------------------------------
 
-wrt_c_tab <- function(data) {
-  data$disease %>% table %>% as.data.frame() %>% t() %>% write_clip
+wrt_c_tab <- function(object = data) {
+  object$disease %>% table %>% as.data.frame() %>% t() %>% write_clip
 }
 
 

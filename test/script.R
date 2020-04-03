@@ -184,11 +184,8 @@ ts()
 
 
 # hepatocyte and cholangiocyte --------------------------------------------
-
 data_list <- list.files(pattern = ".rds")
-
 data_list
-
 
 
 make_subset_(data_list = data_list, cell_type = c("Hepatocyte", "Cholangiocyte"), save_folda = "hepato_cholangio")
@@ -802,7 +799,6 @@ signature_plot()
 
 # MP ----------------------------------------------------------------------
 
-
 data_list = list.files(pattern = ".rds")
 data_list
 
@@ -840,6 +836,55 @@ marker_diff <- diff_test(x = "reference")
 sav(marker_diff)
 get_diff_test_marker(marker_diff)
 make_venn(marker_diff)
+
+signature_plot()
+data<- add_info(data)
+bar_origin(seurat_clusters, disease)
+bar_origin(disease,seurat_clusters)
+tile(macrophage_list)
+
+data$label <- data$seurat_clusters %>% fct_collapse(Mono = c("0","2","3", "4", "10", "11"),
+                                                    DC = c("5"),
+                                                    KC = c("1", "7"),
+                                                    SM = c("9"),
+                                                    cycling ="13"
+                                                    )
+
+id_ch("label")
+tile(macrophage_list)
+data <- sub_fil(data, !seurat_clusters %in% c(6,8,12))
+
+use_id <- up() %>% CellSelector()
+data <- sub_fil(data, id %in% use_id)
+sa_data(MP_combined_fil)
+
+data[[]] %>% mutate(seurat_clusters2 = fct_reorder(seurat_clusters, as.numeric(label))) %>% pull(seurat_clusters)
+data[[]] %>% mutate(seurat_clusters2 = fct_reorder(seurat_clusters, as.numeric(label))) %>% pull(seurat_clusters2)
+
+data$label2 <- data[[]] %>% mutate(n = plyr::mapvalues(seurat_clusters, from = c( 0,2,3,4,10,11,1,7,5,9,13),
+                                        to = c("(1)", "(2)", "(3)", "(4)", "(5)", "(6)", "(1)","(2)", "","","")), name =paste0(label, n)) %>%
+  mutate(name = fct_reorder(name, as.numeric(label))) %>% pull(name)
+
+id_ch("label2")
+up()
+bar_origin(disease, label2)
+bar_origin(label2, disease)
+upd("PBC")
+tile(gene = macrophage_list)
+
+data_pbc <- sub_fil(data, str_detect(disease, "PBC"))
+mp_pbc_marker <- diff_test(data_pbc)
+up(data_pbc)
+mp_pbc_marker %>% group_by(cluster) %>% top_n(5, avg_logFC) %>% pull(gene) %>% .[1:14] %>%
+  ump(., object = data_pbc)
+mp_pbc_marker %>% group_by(cluster) %>% top_n(5, avg_logFC) %>% pull(gene) %>% .[15:28] %>%
+  ump(., object = data_pbc)
+
+DefaultAssay(data_pbc) <- "RNA"
+ump()
+tile(macrophage_list, object = data_pbc)
+Idents(data_pbc) <- "disease"
+up()
 
 
 # Tcell -------------------------------------------------------------------
@@ -930,6 +975,9 @@ df %>% mutate(data = map(data, ~mutate(bar_plot = map2(res_enricher, batch, ~bar
 Tcell_diff_test_res <- diff_test("reference")
 
 Tcell_diff_test_res
+
+
+
 
 # Bcell -------------------------------------------------------------------
 
@@ -1109,6 +1157,29 @@ get_marker_table(nkt_marker, p_val_adj < 0.05)
 up()
 signature_plot()
 signature_plot_within()
+data <- add_info(data)
+data$label <- data$seurat_clusters %>% fct_collapse(Naieve = c("0","14", "17","18"), transit = "8",
+                                                    Naieve_pbmc = c("6", "7", "11"),
+                                                    dysfunctional = c("2"),
+                                                    transitional = c("1", "8", "9"),
+                                                  cNK_1 = "3",cNK_2 = "13", rNK_1 = c("4"), rNK_2 = c("5"),
+                                    cytotoxic = c("10"), Treg = c("12") ) %>% as.character()
+
+id_ch("label")
+up()
+
+bar_origin(disease, label)
+bar_origin(label, disease, randam = T)
+bar_origin(seurat_clusters, disease, randam = T)
+
+data <- sub_fil(data, !seurat_clusters %in% c("15","16","19"))
+
+gene_ano <- read_delim("nkt_marker_gene_ano_table.txt", delim = "\t")
+NKT_marker_ano <- NKT_marker %>% left_join(gene_ano, by = c("gene" = "ID"))
+sav(NKT_marker_ano)
+NKT_marker_ano %>% write_clip
+
+ump("")
 
 
 # endothelia --------------------------------------------------------------
@@ -1126,15 +1197,17 @@ bar_origin("reference")
 bar_origin("disease")
 bar_cluster("reference")
 bar_cluster("disease")
-up()
+up()MP
 tmap(unlist(endothelial_list), min.cutoffc= 0)
 endothelia_marker <- do_diff()
 sav(endothelia_marker)
 
 FeaturePlot()
 
+sa_data(NKT_combined_fil)
 
-#   -----------------------------------------------------------
+
+# batch  -----------------------------------------------------------
 
 
 
