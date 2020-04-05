@@ -177,7 +177,6 @@ abpath <- function(path = clipr::read_clip()) {
 
 #calculate mean expression of each marker list
 sig_val <- function(object = data, marker = "gene_list", use_func = "mean", add_id_cluster = T,filter = F) {
-
   gene_list <- get_list(marker)
   mt <- object@meta.data
   use_func <- switch (use_func, "mean" = mean, "gm_mean" = gm_mean1)
@@ -646,8 +645,8 @@ bar_origin <- function(bar_x, bar_y,object= data, position = "fill", randam = T)
   p <- object@meta.data %>% dplyr::select(!!bar_x, !!bar_y) %>%
     ggplot(aes(!!bar_x, fill = !!bar_y)) + geom_bar(position = position)
   if(randam){
-    n_color <- object@meta.data %>% select(!!bar_y) %>% n_distinct()
-   p <- p +scale_fill_manual(values = gg_color_hue(n = n_color, randam = T))
+    n_color <- object@meta.data %>% dplyr::select(!!bar_y) %>% n_distinct()
+   p <- p + scale_fill_manual(values = gg_color_hue(n = n_color, randam = T))
   }
   print(p)
 }
@@ -837,6 +836,43 @@ do_geneano <- function(marker_df, res_name = "res_enricher",gene_type = gene_ent
 
 
 
+ #annotation plot
+ geneano_bar <- function(marker_list, res_geneano = res_enrich) {
+   res_geneano <- enquo(res_geneano)
+   marker_list %>% mutate(bar  = map2(!!res_geneano, cluster, ~bar(arg1 = .x, arg2 = .y)))
+ }
+
+ geneano_cnet <- function(marker_list, res_geneano = res_enrich) {
+   res_geneano <- enquo(res_geneano)
+   marker_list %>% mutate(bar  = map2(!!res_geneano, cluster, ~cnet(arg1 = .x, arg2 = .y)))
+ }
+
+
+ bar <- function(arg1, arg2, arg3 = "cluster", pathname = "pathway_plot") {
+
+   if(!dir.exists(pathname)) dir.create(pathname)
+   res <- try(barplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T))
+   if(class(res)=="try-error"){
+     return(NULL)
+   }else res
+   ggsave(filename = paste0(pathname, "/", arg3,"_", as.character(arg2), "_enrichplot.jpg"),
+          device = "jpg", width = 30, height = 30, units = "cm")
+   return(res)
+ }
+
+ cnet <- function(arg1, arg2, arg3 = "cluster", pathname = "pathway_plot") {
+   if(!dir.exists(pathname)) dir.create(pathname)
+   res <- try(clusterProfiler::cnetplot(x = arg1, title = as.character(arg2),showCategory = 20, supressResult = T))
+   if(class(res)=="try-error"){
+     return(NULL)
+   }else res
+   ggsave(filename = paste0(pathname, "/", arg3,"_", as.character(arg2), "_cnetplot.jpg"),
+          device = "jpg", width = 30, height = 30, units = "cm")
+   return(res)
+ }
+
+
+
 
 
 # filter  -----------------------------------------------------------------
@@ -872,28 +908,6 @@ fil_cell2 <- function(cell_type) {
 
 
 
-bar <- function(arg1, arg2, arg3 = "cluster", pathname = "pathway_plot") {
-
-  if(!dir.exists(pathname)) dir.create(pathname)
-  res <- try(barplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T))
-  if(class(res)=="try-error"){
-    return(NULL)
-  }else res
-    ggsave(filename = paste0(pathname, "/", arg3,"_", as.character(arg2), "_enrichplot.jpg"),
-         device = "jpg", width = 30, height = 30, units = "cm")
-  return(res)
-}
-
-cnet <- function(arg1, arg2, arg3 = "cluster", pathname = "pathway_plot") {
-  if(!dir.exists(pathname)) dir.create(pathname)
-  res <- try(clusterProfiler::cnetplot(x = arg1, title = as.character(arg2),showCategory = 20, supressResult = T))
-   if(class(res)=="try-error"){
-     return(NULL)
-   }else res
-  ggsave(filename = paste0(pathname, "/", arg3,"_", as.character(arg2), "_cnetplot.jpg"),
-         device = "jpg", width = 30, height = 30, units = "cm")
-  return(res)
-}
 
 
 
@@ -958,7 +972,9 @@ get_diff_test_marker <- function(diff_test_res, ...) {
 # tile_plot ---------------------------------------------------------------
 
 tile <- function(gene, object = data, order = F, plot_wrap = F, fil_val= NULL, color_label = T, ...) {
-  #gene <- get_list(gene)
+  if(is.character(gene)){
+    gene <- get_list(gene)
+  }
   DefaultAssay(object = object) <- "RNA"
   if(class(gene) == "list" ){
     gene <- remove_list_dup(gene)
@@ -1243,6 +1259,7 @@ gg_color_hue <- function(n, l = 65, c = 100, randam =F) {
 }
 
 color_randam <- function(color_vec, n) {
+  if(n <=2)return(color_vec)
   randam_vec <- vector(length = n)
   set.seed(100)
   randam_vec[seq(1,n,2)] <- color_vec[sample(seq(1,n,2), replace = F)]
@@ -1272,5 +1289,44 @@ wrt_c_tab <- function(object = data) {
   object$disease %>% table %>% as.data.frame() %>% t() %>% write_clip
 }
 
+
+# batch_test --------------------------------------------------------------
+
+batch_cor_plot <- function(x, res_cor) {
+  res_cor %>% reshape2::melt() %>% filter(str_detect(Var1, x), !str_detect(Var2, "_")) %>%
+    ggplot(aes(Var1, Var2, fill =value)) + geom_tile(color = "black") +scale_fill_gradient(low = "white", high = "red")+
+    theme(axis.text.x = element_text(angle = 90))
+  ggsave(paste0(x,"_cor2.jpg" ))
+}
+
+
+
+batch_feature <- function(object = data) {
+  disease_list <- unique(object$disease)
+  for(i in seq_along(disease_list)){
+    data_sub <- sub_fil(object = object, disease == disease_list[i])
+    up(data_sub)
+    ggsave(paste0(disease_list[i],"_ump.jpg"))
+    tile(endothelial_list, object = data_sub)
+    ggsave(paste0(disease_list[i],"_endo.jpg"))
+    tile(gene_list,object = data_sub)
+    ggsave(paste0(disease_list[i],"_gene.jpg"))
+  }
+}
+
+
+batch_mat <- function(average_df = av_df, object = data) {
+  disease_list <- unique(object$disease)
+  use_features <- rownames(average_df)
+  for(i in seq_along(disease_list)){
+    cat("executing____", disease_list[i],"________\n")
+    data_sub <- sub_fil(object = object, disease == disease_list[i])
+    df_sub <- AverageExpression(data_sub, assays = "RNA",features = use_features) %>% .[[1]]
+    a <<- df_sub
+    colnames(df_sub) <- paste0(disease_list[i],"_", colnames(df_sub))
+    average_df <- cbind(average_df, df_sub)
+  }
+  return(average_df)
+}
 
 

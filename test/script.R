@@ -1029,6 +1029,32 @@ bcell_marker_list <- bcell_marker_list %>%
 bcell_marker_list <- bcell_marker_list %>% mutate(bar_plot = map2(res_enricher, cluster, ~bar(.x, .y)))
 bcell_marker_list <- bcell_marker_list %>% mutate(cnet_plot = map2(res_enricher, cluster, ~cnet(.x, .y)))
 sav(bcell_marker_list)
+up()
+data <- add_info(data)
+data$label <- data$seurat_clusters %>% fct_collapse(plasma_like  = c("0", "10"),
+                                                    Bcell = c("1", "2", "3", "5", "6", "7"))
+id_ch("label")
+data <- sub_fil(data, !seurat_clusters %in% c(4,8,9))
+up() %>% CellSelector() -> use_id
+data <- SetIdent(data, cells = use_id, value = "far_cell")
+marker <- diff_test(data)
+marker <- FindAllMarkers(data)
+marker
+id_ch("seurat_clusters")
+data <- sub_fil(data, !id %in% use_id)
+data <- sub_fil(data, seurat_clusters != 10)
+up()
+marker <- FindAllMarkers(data, only.pos = T)
+marker %>% filter(p_val_adj < 0.05) %>% write_clip()
+marker <- marker %>% diff_marker_convert()
+marker <- marker %>% do_geneano(res_name = "res_enrich", gene_type = gene_entrez, use_func = geneano_enricher)
+marker <- marker %>% mutate(bar  = map2(res_enrich, cluster, ~bar(arg1 = .x, arg2 = .y,pathname = )))
+
+tile("Bcell_list")
+up()
+bar_origin(disease, label)
+bar_origin(disease, label)
+
 
 # Mesenchyme --------------------------------------------------------------
 
@@ -1179,8 +1205,7 @@ NKT_marker_ano <- NKT_marker %>% left_join(gene_ano, by = c("gene" = "ID"))
 sav(NKT_marker_ano)
 NKT_marker_ano %>% write_clip
 
-ump("")
-
+tile(endothelial_list)
 
 # endothelia --------------------------------------------------------------
 data <- readRDS("~/single_cell/single_cell_project/data/Seurat_object/Endothelia/Endothelia_combined.rds")
@@ -1202,9 +1227,62 @@ tmap(unlist(endothelial_list), min.cutoffc= 0)
 endothelia_marker <- do_diff()
 sav(endothelia_marker)
 
-FeaturePlot()
-
 sa_data(NKT_combined_fil)
+
+data <- add_info(data)
+up()
+signature_plot()
+signature_plot_within()
+tile(gene_list)
+
+Endothelia_marker %>% write_clip
+get_list_name()
+tile(Epithelial_list)
+
+data <- sub_fil(data, !seurat_clusters %in% c(1, 9, 11))
+use_id <- up() %>% CellSelector()
+data <- sub_fil(data, id %in% use_id)
+
+data$label <- data$seurat_clusters %>% fct_collapse(., SAEC = c("0","5", "6","7"),
+                                              LSEC = c("3", "10"),
+                                              Central = c("2"),
+                                              Arterial = c("4"),
+                                              Lypha = c("8")
+                                              )
+data$label2 <- data[[]] %>% mutate(n = plyr::mapvalues(seurat_clusters,from = c(0, 5,6,7,3,10,2,4,8),
+                                                        to = c("(1)","(2)","(3)","(4)","(1)","(2)","","", "")),
+                                   name = paste(label, n, sep = "")) %>%
+  mutate(name = fct_reorder(name, as.numeric(label))) %>%
+  pull(name)
+
+
+id_ch("label2")
+up()
+upd("PBC")
+wrt_c_tab()
+bar_origin(disease, label2)
+bar_origin(label2, disease)
+sa_data(Endothelia_combined_filtered)
+
+av_df <- AverageExpression(data, assays = "RNA", features = data@assays$integrated@var.features)
+av_df <- av_df[[1]]
+id_ch("label2")
+id_ch("label2")
+id_ch("seurat_clusters")
+
+
+com_av_df <- batch_mat(average_df = av_df, object = data)
+
+res_cor <- cor(com_av_df)
+res_cor_spearman <- cor(com_av_df, method = "spearman")
+
+
+res_cor_spearman %>% reshape2::melt() %>% ggplot(aes(Var1, Var2, fill = value)) +
+  geom_tile()+ theme(axis.text.x = element_text(angle = 90)) + scale_fill_gradient2(low = "blue", mid = "yellow", high = "red", midpoint = 0.5)
+map(unique(data$disease), ~batch_cor_plot(x = .x, res_cor = res_cor))
+tile("Endothelial_list")
+DefaultAssay(data) <- "RNA"
+ump(c("CLEC4M"))
 
 
 # batch  -----------------------------------------------------------
