@@ -1031,7 +1031,7 @@ bcell_marker_list <- bcell_marker_list %>% mutate(cnet_plot = map2(res_enricher,
 sav(bcell_marker_list)
 up()
 data <- add_info(data)
-data$label <- data$seurat_clusters %>% fct_collapse(plasma_like  = c("0", "10"),
+data$label <- data$seurat_clusters %>% fct_collapse(plasma_like  = c("0"),
                                                     Bcell = c("1", "2", "3", "5", "6", "7"))
 id_ch("label")
 data <- sub_fil(data, !seurat_clusters %in% c(4,8,9))
@@ -1052,8 +1052,28 @@ marker <- marker %>% mutate(bar  = map2(res_enrich, cluster, ~bar(arg1 = .x, arg
 
 tile("Bcell_list")
 up()
-bar_origin(disease, label)
-bar_origin(disease, label)
+
+data$label2 <- data[[]] %>% mutate(n = plyr::mapvalues(seurat_clusters,from = c(0,1,2,3,5,6,7),
+                                                       to = c("","(1)","(2)","(3)","(4)","(5)","(6)")),
+                                   name = paste(label, n, sep = "")) %>%
+  mutate(name = fct_reorder(name, as.numeric(label))) %>%
+  pull(name)
+id_ch("label")
+up()
+
+bar_origin(disease, label2)
+bar_origin(label2, disease)
+av_df <- AverageExpression(data, features = data@assays$integrated@var.features, assays = "RNA")
+
+av_df_batch <- batch_mat(av_df[[1]], object = data)
+re_cor <- cor(av_df_batch, method = "spearman")
+batch_cor_heatmap(re_cor)
+
+map(unique(data$disease), ~batch_cor_plot(x = .x, res_cor = res_cor))
+
+FindAllMarkers(data)
+bcell_marker_list <- marker
+sav(bcell_marker_list)
 
 
 # Mesenchyme --------------------------------------------------------------
@@ -1277,12 +1297,15 @@ res_cor <- cor(com_av_df)
 res_cor_spearman <- cor(com_av_df, method = "spearman")
 
 
-res_cor_spearman %>% reshape2::melt() %>% ggplot(aes(Var1, Var2, fill = value)) +
-  geom_tile()+ theme(axis.text.x = element_text(angle = 90)) + scale_fill_gradient2(low = "blue", mid = "yellow", high = "red", midpoint = 0.5)
-map(unique(data$disease), ~batch_cor_plot(x = .x, res_cor = res_cor))
 tile("Endothelial_list")
+
 DefaultAssay(data) <- "RNA"
 ump(c("CLEC4M"))
+
+
+
+
+
 
 
 # batch  -----------------------------------------------------------

@@ -555,6 +555,13 @@ restart <- function(remotes, install_github) {
 
 # differential gene expression analysis within same sample ----------------
 
+#diff_test
+diff_test_vs <- function(ident.1, ident.2) {
+  df <- FindMarkers(ident.1 = "HHyP(2)", ident.2 = "HHyP(3)", object = data)
+  df %>% rownames_to_column(var) %>% mutate(cluster = if_else(avg_logFC>0, ident.1, ident.2))
+  return(df)
+}
+
 
 #find marker wrapper function
 diff_test <- function(object = data, ...) {
@@ -683,17 +690,17 @@ add_info <- function(data) {
                                str_detect(batch, "ICC")~"ICC",
                                TRUE~as.character(disease))) %>% pull(disease)
 
-
-
   data$condition  <- data@meta.data %>%
     mutate(condition = fct_collapse(disease, Healthy = c("NL_1", "NL2", "NL_3"),
                                     CH = "CH", PBC = c("PBC_1", "PBC_2"),
                                     )) %>%
     pull(condition)
+  data$data_origin <- data@meta.data %>% mutate(n = fct_collapse(batch, macparland = c("macpoland"), segal = c("adult", "fetal"))) %>%
+    pull(n)
+
   data$id <- rownames(data@meta.data)
 
-  return(data)
-
+  data <<- data
 
 }
 
@@ -972,7 +979,7 @@ get_diff_test_marker <- function(diff_test_res, ...) {
 # tile_plot ---------------------------------------------------------------
 
 tile <- function(gene, object = data, order = F, plot_wrap = F, fil_val= NULL, color_label = T, ...) {
-  if(is.character(gene)){
+  if(str_detect(gene, "_list")){
     gene <- get_list(gene)
   }
   DefaultAssay(object = object) <- "RNA"
@@ -981,6 +988,7 @@ tile <- function(gene, object = data, order = F, plot_wrap = F, fil_val= NULL, c
     gene <-   fil_gene(gene, object = object)
     feature <- unlist(gene)
     label_df <- enframe(gene, name = "label",value = "gene") %>% unnest
+
     for_tile_legend_df <<- label_df
   } else{
     feature <- fil_gene(gene, object = object)
@@ -1034,7 +1042,15 @@ tile <- function(gene, object = data, order = F, plot_wrap = F, fil_val= NULL, c
       p <- use_df %>% ggplot(aes(cluster, gene, size = pct, fill = label, colour = score)) + geom_point() +
         scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
                                values = c(1.0,0.7,0.6,0.4,0.3,0))
-      p <- p + theme(axis.text.y = element_text(colour = label_color_use)) + scale_fill_manual(values = label_color)
+      p <- p + theme(axis.text.y = element_text(colour = label_color_use),
+                     # panel.background = element_rect(fill = "#F5F5F5",
+                     #                                 colour = "#F5F5F5",
+                     #                                 size = 0.5, linetype = "solid"),
+                     # panel.grid.major = element_line(size = 0.5, linetype = 'solid',
+                     #                                 colour = "black"),
+                     #panel.grid.minor = element_line(size = 0.25, linetype = 'solid',colour = "black")
+                     ) +
+        scale_fill_manual(values = label_color)
       return(p)
     }
 
@@ -1154,6 +1170,7 @@ FetchData(data_sub, vars = unlist(segal_list)) %>% rownames_to_column("id") %>%
 # monocle3 ----------------------------------------------------------------
 
 make_monocle3 <- function(seurat_object) {
+  DefaultAssay(seurat_object) <- "integrated"
   umi_matrix <- seurat_object@assays$integrated@data
   sample_info <- data.frame(seurat_object@meta.data,
                             stringsAsFactors = F)
@@ -1167,9 +1184,9 @@ make_monocle3 <- function(seurat_object) {
 }
 
  do_monocle <- function(cds = mono) {
-   cds <- monocle3::preprocess_cds(cds, num_dim = 20)
+   cds <- monocle3::preprocess_cds(cds, num_dim = 30)
    cds <- monocle3::reduce_dimension(cds) #UMAP reduce dimension (defalt)
-   cds = monocle3::cluster_cells(cds, k = 7, reduction_method = "UMAP")
+   cds = monocle3::cluster_cells(cds, k = 5, reduction_method = "UMAP")
    monocle3::plot_cells(cds, reduction_method = "UMAP", color_cells_by = "cluster",
               group_label_size = 6, cell_size = 1.5) #plot by cluster
    cds <- monocle3::align_cds(cds)
@@ -1328,5 +1345,18 @@ batch_mat <- function(average_df = av_df, object = data) {
   }
   return(average_df)
 }
+
+
+batch_cor_heatmap <- function(result_cor_test) {
+  result_cor_test %>% reshape2::melt() %>% ggplot(aes(Var1, Var2, fill = value)) +
+    geom_tile()+ theme(#axis.text.x = element_text(angle = 90, vjust = 0.5),
+                       axis.ticks.y = element_blank(),axis.text.y = element_blank(),
+                       axis.ticks.x = element_blank(),axis.text.x = element_blank()) +
+    scale_fill_gradient2(low = "blue", mid = "yellow", high = "red", midpoint = 0.5)
+}
+
+
+
+
 
 
