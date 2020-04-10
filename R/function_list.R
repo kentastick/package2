@@ -769,8 +769,13 @@ add_sig_val <- function(object = data, marker_list, use_func = "mean", label_nam
 
     for(i in seq_along(marker_list)){
     use_list <- get_list(marker = marker_list[[i]])
+    if(use_func == "gm_mean"){
+      use_name <- paste0(names(use_list), "_gm")
+    }else {
+      use_name <- names(use_list)
 
-    rank_table <- object@meta.data %>%  select(seurat_clusters, names(use_list)) %>%
+    }
+    rank_table <- object@meta.data %>%  select(seurat_clusters, all_of(use_name)) %>%
       group_by(seurat_clusters) %>% gather(-seurat_clusters, key = "signature", value = "value") %>%
       group_by(seurat_clusters, signature) %>%
       summarise(m = mean(value)) %>%
@@ -791,6 +796,13 @@ add_sig_val <- function(object = data, marker_list, use_func = "mean", label_nam
 
 }
 
+
+del_m <- function(object) {
+
+  object@meta.data[str_subset(colnames(object@meta.data), "_m|_gm")] <-NULL
+
+  return(object)
+}
 
 
 #add strong/weak value of one gene by specific value
@@ -1435,14 +1447,11 @@ batch_cor_heatmap <- function(av_df_batch, method = "pearson") {
   res_cor  %>% reshape2::melt() %>% mutate(Var1 = fct_relevel(Var1, use_order),
                                                 Var2 = fct_relevel(Var2, use_order)) %>%
   ggplot(aes(Var1, Var2, fill = value)) +
-    geom_tile()+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5),
+    geom_tile()+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5)
                        #axis.ticks.y = element_blank(),axis.text.y = element_blank(),
                        #axis.ticks.x = element_blank(),axis.text.x = element_blank()
-                       ) +
-    scale_fill_gradient2(low = "blue", mid = "yellow", high = "red", midpoint = 0.5)+
-    geom_text(aes(label = round(value, 2)))
+                       )+scale_fill_gradient2(low = "blue", mid = "yellow", high = "red", midpoint = 0.5)
 }
-
 
 
 
