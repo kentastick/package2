@@ -3,8 +3,7 @@ library(tidyverse)
 library(purrr)
 library(Seurat)
 library(clipr)
-library(gghighlight)
-
+library(magrittr)
 
 # extract specific cells from each seurat object ------------------------------
 
@@ -187,128 +186,15 @@ ts()
 data_list <- list.files(pattern = ".rds")
 data_list
 
-
-make_subset_(data_list = data_list, cell_type = c("Hepatocyte", "Cholangiocyte"), save_folda = "hepato_cholangio")
+make_subset(data_list = data_list, cell_type = c("Hepatocyte", "Cholangiocyte"), save_folda = "hepato_cholangio")
 
 setwd("hepato_cholangio/")
+
 object_list <- make_list(cell_type = "Cholangiocyte")
 
 k.filter <- min(200, min(sapply(object_list, ncol)))
 
 data <- combined(object.list = object_list, cell_type = "Cholangiocyte", k.filter = k.filter)
-
-data[[]]
-
-data$reference <- data@meta.data %>% mutate(reference = fct_collapse(batch, Macparland = "macpoland",
-               Aizarani = "aizarani",
-               RamaChandran = c("chandran_cd45nega_ht", "chandran_cd45posi_ht", "chandran_cd45nega_ch", "chandran_cd45posi_ch", "ramachandran_blood"),
-               ours_case1 = "pbc_case1",
-               ours_case2 = "pbc_case2")) %>%
-  mutate(reference = case_when(str_detect(batch, "fetal|adult")~"Segal",
-                               str_detect(batch, "HCC|ICC")~"Ma",
-                               TRUE~as.character(reference))) %>% pull(reference)
-
-data$disease <- data@meta.data %>% mutate(disease = fct_collapse(batch,NL_1 = "macpoland",
-               NL_2 = "aizarani",
-               NL_3 = c("chandran_cd45nega_ht", "chandran_cd45posi_ht"),
-               CH = c("chandran_cd45nega_ch", "chandran_cd45posi_ch"),
-               PBC = c("pbc_case1", "pbc_case2"),
-               BL = "ramachandran_blood")) %>%
-  mutate(disease = case_when(str_detect(batch, "fetal")~"FL",
-                             str_detect(batch, "adult")~"NL_4",
-                             str_detect(batch, "HCC")~"HCC",
-                             str_detect(batch, "ICC")~"ICC",
-                             TRUE~as.character(disease))) %>% pull(disease)
-
-
-
-up(group.by = "disease")
-up(group.by = "reference")
-
-saveRDS(data, file = "hepato_cholangio_combined.rds")
-
-signature_plot()
-ump("KRT7")
-
-
-#filtering procedure
-
-add_m <- function(df_list, add = "_m") {
-  colnames(df_list) <- paste0(colnames(df_list), add)
-  return(df_list)
-}
-
-df_gene_list_m <- sig_val() %>% add_m(add = "_m")
-df_gene_list_gm <- sig_val(use_func = "gm_mean") %>% add_m(add = "_gm")
-df_segal_list_m <- sig_val(marker = "segal_list") %>% add_m(add = "_m")
-df_segal_list_gm <- sig_val(marker = "segal_list",use_func = "gm_mean") %>% add_m(add = "_gm")
-
-df_com <- list(df_gene_list_m, df_gene_list_gm, df_segal_list_m, df_segal_list_gm) %>% reduce(cbind)
-df_com <- df_com %>% keep(is.numeric)
-data <- add_meta(df = df_com)
-data <- add_info(data= data)
-data[[]] %>% colnames
-
-data <- sub(Hepatocyte_m >0&Cholangiocyte_m==0, seurat_clusters %in% c(1,3,4,5,11,14,15,16 ), !disease %in% c("BL", "HCC","ICC","unknown"))
-
-ts(group.by = "reference")
-ts(group.by = "disease")
-
-sav()
-
-bar_origin("disease")
-bar_origin("reference")
-tmap("KRT7")
-
-Idents(data)
-ts(group.by = "reference", pt.size = 2) + gghighlight(reference %>% str_detect("case"))
-tmap("Hepatocyte_m")
-feature_sig("zone_list")
-sa(hepato_subset)
-
-marker_hepato <- FindAllMarkers(object = data, min.pct = 0.25, min.diff.pct = 0.15, only.pos = T)
-sav(marker_hepato)
-
-marker %>% group_by(cluster) %>% top_n(20, avg_logFC)
-
-
-marker_hepato %>% group_by(cluster) %>% nest()
-
-DoHeatmap(data, features = top_10)
-
-
-
-library(clusterProfiler)
-library(org.Hs.eg.db)
-
-data(geneList, package="DOSE")
-
-gene <- names(geneList)[abs(geneList) > 2]
-
-gene.df <- bitr(gene, fromType = "ENTREZID",
-                toType = c("ENSEMBL", "SYMBOL"),
-                OrgDb = org.Hs.eg.db)
-
-ggo <- groupGO(gene     = gene,
-               OrgDb    = org.Hs.eg.db,
-               ont      = "CC",
-               level    = 3,
-               readable = TRUE)
-
-
-marker %>% filter(p_val_adj <0.05) %>% group_by(cluster) %>% arrange(cluster,-avg_logFC) %>% dplyr::select(cluster, gene) %>%
-  nest() %>% mutate(data = map(data, ~pull(., gene)))
-
-ts(data, group.by = "reference")  + gghighlight(reference == "Macparland")
-ts(data, group.by = "reference")  + gghighlight(reference == "Our_case1")
-ts(data, group.by = "reference")  + gghighlight(reference == "Our_case2")
-ts(data, group.by = "disease")  + gghighlight(disease %in% c("HCC", "ICC", "FL"))
-ts(data, group.by = "disease")  + gghighlight(disease %in% c("CH"))
-
-
-
-
-
 
 
 # cholangio_hepato --------------------------------------------------------
@@ -355,6 +241,8 @@ use_id <- up() %>% CellSelector()
 data <- sub_fil(data, id %in% use_id)
 up()
 sa_data(hepato_subset)
+
+
 
 
 #compare with mouse cells
@@ -498,28 +386,65 @@ sa_data(cholangio_subset_fil)
 
 
  #monocle
+
 mono <- make_monocle3(data)
 mono <- do_monocle(mono)
-mono_marker <- do_diff(mono, group_cells_by = "seurat_clusters")
+mono_marker <- do_diff_mono(mono, group_cells_by = "seurat_clusters")
 mop(mono, color_cells_by = "seurat_clusters")
-mono_marker
 mono_marker %>% arrange(cell_group, -mean_expression)
-mono[]
-
+use_id1 <- mono %>% monocle3::choose_cells()
+use_id2 <- mono %>% monocle3::choose_cells()
 
 pr_graph_test_res <- monocle3::graph_test(mono, neighbor_graph="knn", cores=8)
 
 pr_deg_ids <- row.names(subset(pr_graph_test_res, q_value < 0.05))
 
-gene_module_df <- monocle3::find_gene_modules(mono[pr_deg_ids,], resolution=1e-2)
+gene_module_df <- monocle3::find_gene_modules(mono[pr_deg_ids,])
 
 
 
 #new_cell_id
 new_id_1 <- up() %>% CellSelector()
-data <- SetIdent(data, cells = new_id_1, value = "new_cell_1")
+data <- SetIdent(data, cells = new_id_1, value = "9_sub")
+up()
+
 sav(new_id_1)
 
+tile("segal_list", order = T)
+
+up()
+data$label <- data$seurat_clusters %>% fct_collapse()
+
+data_fl <- sub_fil(data, disease == "FL")
+data_pbc <- sub_fil(data, str_detect(disease,"PBC"))
+up(data_fl)
+up(data_pbc)
+
+data$label <- data$seurat_clusters %>% fct_recode(data)
+
+
+data_pbc@assays$RNA@data[data@assays$integrated@var.features,] %>% as.matrix() %>% cor %>%
+  batch_cor_heatmap()
+data_pbc@assays$RNA@data[data@assays$integrated@var.features,] %>% as.matrix() %>% cor %>%
+  batch_cor_heatmap()
+
+av_df <- AverageExpression(data, assays = "RNA", features = data@assays$integrated@var.features)
+av_df_bt <- batch_mat(av_df[[1]], data)
+res_cor <- cor(av_df_bt, method = "spearman")
+batch_cor_heatmap(res_cor)
+
+data@assays$RNA@counts
+
+
+s
+
+up(data_fl)
+
+marker_2vs7 <- FindMarkers(data, ident.1 = 2, ident.2 =7)
+marker_7vs2 <- FindMarkers(data, ident.1 = 7, ident.2 = 2, only.pos = T)
+marker_7vs12 <- FindMarkers(data, ident.1 = 7, ident.2 = 12, only.pos = T)
+marker_2vs7
+marker_7vs12
 
 
 
@@ -719,6 +644,13 @@ marker_anotation <- marker %>% dplyr::select(cluster, gene_symbol) %>% unnest %>
 marker_anotation %>% write_clip()
 
 up(group.by = "disease") + gghighlight(str_detect(disease, "PBC"), label_key = T)
+
+
+#
+up()
+data$disease %>% table()
+sub_fil(data,  )
+tile("zone_list")
 
 #cholangio vs hepatocyte
 up()

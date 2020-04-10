@@ -272,7 +272,8 @@ signature_tile <- function(marker = "gene_list", object = data, use_func = "mean
     df %>% ggplot(aes(cluster, signature, fill = score)) + geom_tile(color = "black") +
     #scale_fill_gradient2(low = "blue",  mid = "white", high = "red", midpoint = 0.5)
      scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
-                            values = c(1.0,0.7,0.6,0.4,0.3,0))
+                            values = c(1.0,0.7,0.6,0.4,0.3,0)) +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.2))
 }
 
 
@@ -395,6 +396,22 @@ make_subset <- function(data_list, save_folda, cell_type, use_func = "mean", mar
   }
 
 
+make_subset_id <- function(data = data, pathname = "test") {
+  file_list <- list.files(pattern = ".rds")
+  id_list <- data@meta.data %>% dplyr::select(id, data_origin) %>% split(data$data_origin) %>%
+    map(~.$id)
+  id_list <- id_list %>% map(~str_remove_all(., "_\\d{1,2}$"))
+  if(!dir.exists(pathname)) dir.create(pathname)
+  name_list <- names(id_list)
+  for(i in seq_along(id_list)){
+    use_id <- id_list[[i]]
+    temp <- readRDS(file = str_subset(file_list, name_list[i]))
+    if(class(temp) != "Seurat") next
+    temp <- subset(temp, cells = use_id)
+    saveRDS(temp, file = file.path(pathname, paste0(name_list[i],"_subset.rds" ) ))
+  }
+}
+
 
 
 # combined method ---------------------------------------------------------
@@ -439,8 +456,8 @@ combined <- function(object.list,cell_type = "subset", k.filter = 200) {
 
 # read all subset data ----------------------------------------------------
 
-make_list <- function(cell_type) {
-  file_dir <- list.files(pattern = paste0(paste0(cell_type,collapse = "_"),".rds"), recursive = T)
+make_list <- function() {
+  file_dir <- list.files(pattern = ".rds", recursive = T)
 
   file_name <- file_dir %>% str_split("/") %>% map(~.[1]) %>% unlist
   object.list <- list()
@@ -661,10 +678,12 @@ bar_origin <- function(bar_x, bar_y,object= data, position = "fill", randam = T)
 # meta data modifying function--------------------------------------------------------
 
 #change current cell label
-id_ch <- function(use_meta, object = data) {
+id_ch <- function(use_meta, object = data, x) {
+  object_name <- as.character(substitute(object))
   Idents(object = object) <- use_meta
-  data <<- object
+  assign(x = object_name, value = object, envir = .GlobalEnv)
 }
+
 
 #change reference sample_type infomation
 add_info <- function(data) {
@@ -700,18 +719,44 @@ add_info <- function(data) {
 
   data$id <- rownames(data@meta.data)
 
-  data <<- data
-
 }
 
 
 #add summarised marker_list average expression value
+#
+# add_sig_val <- function(object = data, marker_list, use_func = "mean", overwrite = T) {
+#
+#   #object <- eval(as.name(object_name))
+#   object_name <- as.character(substitute(object))
+#
+#   df_list <- vector("list", length(marker_list))
+#   for(i in seq_along(marker_list)){
+#     df_list[[i]] <- sig_val(object = object, marker = marker_list[i], use_func = use_func) %>%
+#       add_m(add = switch(use_func, "mean" = "", "gm_mean" = "_gm"))
+#   }
+#
+#
+#   df_com <- df_list %>% purrr::reduce(cbind)
+#
+#   df_com <- df_com %>% keep(is.numeric)
+#
+#   object <- add_meta(df = df_com, object = object)
+#
+#   if(overwrite){
+#     assign(x = object_name, value = object, envir = .GlobalEnv)
+#   }else return(object)
+#
+# }
 
-add_sig_val <- function(object = data, marker_list, use_func = "mean") {
+add_sig_val <- function(object = data, marker_list, use_func = "mean", label_name = "label", overwrite = F, add_signature_label = T){
+
+  #object <- eval(as.name(object_name))
+  object_name <- as.character(substitute(object))
+
   df_list <- vector("list", length(marker_list))
   for(i in seq_along(marker_list)){
     df_list[[i]] <- sig_val(object = object, marker = marker_list[i], use_func = use_func) %>%
-      add_m(add = switch(use_func, "mean" = "_m", "gm_mean" = "_gm"))
+      add_m(add = switch(use_func, "mean" = "", "gm_mean" = "_gm"))
   }
 
   df_com <- df_list %>% purrr::reduce(cbind)
@@ -719,8 +764,33 @@ add_sig_val <- function(object = data, marker_list, use_func = "mean") {
   df_com <- df_com %>% keep(is.numeric)
 
   object <- add_meta(df = df_com, object = object)
-  data <<- object
+
+  if(add_signature_label){
+
+    for(i in seq_along(marker_list)){
+    use_list <- get_list(marker = marker_list[[i]])
+
+    rank_table <- object@meta.data %>%  select(seurat_clusters, names(use_list)) %>%
+      group_by(seurat_clusters) %>% gather(-seurat_clusters, key = "signature", value = "value") %>%
+      group_by(seurat_clusters, signature) %>%
+      summarise(m = mean(value)) %>%
+      group_by(signature) %>%
+      mutate(max = max(m), score = m/max) %>%
+      group_by(seurat_clusters) %>%
+      mutate(rank = row_number(score)) %>%
+      filter(rank == 1) %>%
+      dplyr::select(seurat_clusters, signature)
+    a<<- rank_table
+    use_label <- object@meta.data %>% left_join(rank_table, by = "seurat_clusters") %>% pull(signature)
+    object@meta.data[, marker_list[i]] <- use_label
+    }
+  }
+  if(overwrite){
+    assign(x = object_name, value = object, envir = .GlobalEnv)
+  } else return(object)
+
 }
+
 
 
 #add strong/weak value of one gene by specific value
@@ -741,7 +811,7 @@ add_meta_binval <- function(gene, object = data) {
 add_meta <- function(df, object = data) {
   object@meta.data <- object@meta.data %>% rownames_to_column(var = "temp") %>%
     bind_cols(df) %>% column_to_rownames(var = "temp")
-  object <<- object
+  return(object)
 }
 
 add_m <- function(df_list, add = "_m") {
@@ -1255,6 +1325,17 @@ do_cor <- function(expr_df, gene, group_label = "subset", method = "pearson") {
   return(all_res_df)
 }
 
+do_cor_batch <- function(expr_df, gene, group_label = "subset", method = "pearson") {
+  nu <- str_which(colnames(expr_df), paste0("^", gene, "$"))
+  all_res <- cor(x = expr_d[gene], y = expr_df[-nu], method = method)
+  all_res_df <- tibble(gene = colnames(all_res), cor = as.numeric(all_res[1,])) %>% arrange(-cor)
+  all_res_df$batch <- group_label
+  all_res_df %>% head(50) %>%
+    ggplot(aes(fct_reorder(gene,cor), cor, fill = gene)) + geom_bar(stat= "identity") + coord_flip() + guides(fill = F)
+  ggsave(filename = paste0(group_label, "_barplot.jpg"), device = "jpeg")
+  return(all_res_df)
+}
+
 
 
 do_cor_test <- function(expr_df) {
@@ -1339,20 +1420,31 @@ batch_mat <- function(average_df = av_df, object = data) {
     cat("executing____", disease_list[i],"________\n")
     data_sub <- sub_fil(object = object, disease == disease_list[i])
     df_sub <- AverageExpression(data_sub, assays = "RNA",features = use_features) %>% .[[1]]
-    a <<- df_sub
-    colnames(df_sub) <- paste0(disease_list[i],"_", colnames(df_sub))
+    colnames(df_sub) <- paste0(colnames(df_sub),"_", disease_list[i])
+
     average_df <- cbind(average_df, df_sub)
   }
   return(average_df)
 }
 
 
-batch_cor_heatmap <- function(result_cor_test) {
-  result_cor_test %>% reshape2::melt() %>% ggplot(aes(Var1, Var2, fill = value)) +
-    geom_tile()+ theme(#axis.text.x = element_text(angle = 90, vjust = 0.5),
-                       axis.ticks.y = element_blank(),axis.text.y = element_blank(),
-                       axis.ticks.x = element_blank(),axis.text.x = element_blank()) +
-    scale_fill_gradient2(low = "blue", mid = "yellow", high = "red", midpoint = 0.5)
+res_cor_hep_p %>% reshape2::melt() %>% mutate(Var1 = fct_relevel(Var1, use_order),
+                                              Var2 = fct_relevel(Var2, use_order))
+
+
+
+batch_cor_heatmap <- function(av_df_batch, method = "pearson") {
+  use_order <- av_df_batch %>% colnames() %>% sort()
+  res_cor <- cor(av_df_batch, method = method)
+  res_cor  %>% reshape2::melt() %>% mutate(Var1 = fct_relevel(Var1, use_order),
+                                                Var2 = fct_relevel(Var2, use_order)) %>%
+  ggplot(aes(Var1, Var2, fill = value)) +
+    geom_tile()+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5),
+                       #axis.ticks.y = element_blank(),axis.text.y = element_blank(),
+                       #axis.ticks.x = element_blank(),axis.text.x = element_blank()
+                       ) +
+    scale_fill_gradient2(low = "blue", mid = "yellow", high = "red", midpoint = 0.5)+
+    geom_text(aes(label = round(value, 2)))
 }
 
 
