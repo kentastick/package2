@@ -1428,10 +1428,6 @@ batch_mat <- function(average_df = av_df, object = data) {
 }
 
 
-res_cor_hep_p %>% reshape2::melt() %>% mutate(Var1 = fct_relevel(Var1, use_order),
-                                              Var2 = fct_relevel(Var2, use_order))
-
-
 
 batch_cor_heatmap <- function(av_df_batch, method = "pearson") {
   use_order <- av_df_batch %>% colnames() %>% sort()
