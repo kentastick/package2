@@ -131,8 +131,8 @@ ump <- function(features, object = data,...) {
 }
 
 
-vl <- function(...) {
-  VlnPlot(object = data,...)
+vl <- function(features, object = data,...) {
+  Seurat::VlnPlot(object = object, features = features, ...)
 }
 
 
@@ -573,16 +573,16 @@ restart <- function(remotes, install_github) {
 # differential gene expression analysis within same sample ----------------
 
 #diff_test
-diff_test_vs <- function(ident.1, ident.2) {
-  df <- FindMarkers(ident.1 = "HHyP(2)", ident.2 = "HHyP(3)", object = data)
-  df %>% rownames_to_column(var) %>% mutate(cluster = if_else(avg_logFC>0, ident.1, ident.2))
+diff_test_vs <- function(ident.1, ident.2, object = data) {
+  df <- FindMarkers(ident.1 = ident.1, ident.2 = ident.2, object = object)
+  df %>% rownames_to_column(var = "gene") %>% mutate(cluster = if_else(avg_logFC>0, ident.1, ident.2))
   return(df)
 }
 
 
 #find marker wrapper function
 diff_test <- function(object = data, ...) {
-  FindAllMarkers(object = object, min.pct = 0.25, logfc.threshold = log(2), only.pos = T, ...)
+  FindAllMarkers(object = object, min.pct = 0.25, only.pos = T, ...)
 }
 
 
@@ -785,7 +785,6 @@ add_sig_val <- function(object = data, marker_list, use_func = "mean", label_nam
       mutate(rank = row_number(score)) %>%
       filter(rank == 1) %>%
       dplyr::select(seurat_clusters, signature)
-    a<<- rank_table
     use_label <- object@meta.data %>% left_join(rank_table, by = "seurat_clusters") %>% pull(signature)
     object@meta.data[, marker_list[i]] <- use_label
     }
@@ -807,6 +806,7 @@ del_m <- function(object) {
 
 #add strong/weak value of one gene by specific value
 add_meta_binval <- function(gene, object = data) {
+  object_name <- as.character(substitute(object))
   df <- FetchData(object = object, var = gene) %>% rownames_to_column(var = "id")
   gene_m <- df %>% pull(gene) %>%  mean()
   gene_sd <- df %>% pull(gene) %>%  sd()
@@ -814,8 +814,8 @@ add_meta_binval <- function(gene, object = data) {
   colnames(df)[2] <- "temp"
   use_column <- df %>% dplyr::select(id, temp) %>% mutate(temp= if_else(temp> cut_off, "strong", "ordinary")) %>% dplyr::select(temp)
   colnames(use_column) <- paste0(gene,"_bin")
-  data <- add_meta(df = use_column, object = data)
-  data <<- data
+  object <- add_meta(df = use_column, object = object)
+  assign(x = object_name, value = object, envir = .GlobalEnv)
 }
 
 
@@ -1098,7 +1098,6 @@ tile <- function(gene, object = data, order = F, plot_wrap = F, fil_val= NULL, c
 
   if(class(gene) == "list" ){
     use_df <- use_df %>% left_join(label_df, by = c("gene"))
-    a<<- use_df
 
     use_df <- use_df %>% ungroup() %>%  mutate(gene = fct_relevel(gene, feature))
 
@@ -1328,9 +1327,10 @@ get_df <- function(object) {
 
 do_cor <- function(expr_df, gene, group_label = "subset", method = "pearson") {
   nu <- str_which(colnames(expr_df), paste0("^", gene, "$"))
-  all_res <- cor(x = expr_d[gene], y = expr_df[-nu], method = method)
+  all_res <- cor(x = expr_df[gene], y = expr_df[-nu], method = method)
   all_res_df <- tibble(gene = colnames(all_res), cor = as.numeric(all_res[1,])) %>% arrange(-cor)
   all_res_df$batch <- group_label
+  return(all_res_df)
   all_res_df %>% head(50) %>%
     ggplot(aes(fct_reorder(gene,cor), cor, fill = gene)) + geom_bar(stat= "identity") + coord_flip() + guides(fill = F)
   ggsave(filename = paste0(group_label, "_barplot.jpg"), device = "jpeg")
@@ -1454,6 +1454,12 @@ batch_cor_heatmap <- function(av_df_batch, method = "pearson") {
 }
 
 
+my_add <- function(a,b) {
+  while(TRUE){
+    b = b-1
+    a = a+1
 
-
-
+    if(b==0)break
+  }
+  return(a)
+}
