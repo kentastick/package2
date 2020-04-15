@@ -1,5 +1,14 @@
 
 
+
+
+isValidWalk()
+isValidWalk <- function(walk){
+  all(sapply(X = c("n","w"), FUN = function(x)sum(grepl(x,walk))) ==sapply(X = c("s","e"), FUN = function(x)sum(grepl(x,walk))))
+
+}
+
+
 digit_cal <- function(number) {
   original_number = number
   k= 0
@@ -12,7 +21,7 @@ digit_cal <- function(number) {
   i = 1
   while(k>=0){
     digit_number[i] <- number%/%10**k
-    number <- number - digit_number[i]*10**k  
+    number <- number - digit_number[i]*10**k
     i = i+1
     k = k-1
   }
@@ -20,7 +29,7 @@ digit_cal <- function(number) {
     print("STRONG!!!!")
   }else{
     print("Not Strong !!")
-    
+
   }
 }
 
@@ -29,14 +38,14 @@ value = 0
 count = 1
 for(k in 1:10){
   for(i in 1:10){
-    current_value =  1/i*(k+2)**2*k 
-    value = value + 1/i*(k+2)**2*k 
+    current_value =  1/i*(k+2)**2*k
+    value = value + 1/i*(k+2)**2*k
     print(current_value)
     print(count)
-    count = count+1 
+    count = count+1
   }
-  
-  
+
+
 }
 
 
@@ -66,7 +75,7 @@ is_prime <- function(num) {
         break
       }
     }
-  } 
+  }
   if(num == 2)    flag = 1
   if(flag == 1) {
     return(TRUE)

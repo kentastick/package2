@@ -205,6 +205,36 @@ sig_val <- function(object = data, marker = "gene_list", use_func = "mean", add_
   return(mt)
 }
 
+sig_val_ <- function(object = data, marker = "gene_list", use_func = "mean", add_id_cluster = T,filter = F) {
+  gene_list <- get_list(marker)
+  mt <- object@meta.data
+  use_func <- switch (use_func, "mean" = mean, "gm_mean" = gm_mean1)
+  count_mt <- object@assays$RNA@data
+  gene_name <- rownames(count_mt)
+  gene_list <- purrr::map(gene_list, ~.[. %in% gene_name])
+  gene_list <- gene_list[map(gene_list, length)>1]
+  for(i in seq_along(gene_list)){
+    sub_mt <- count_mt[gene_list[[i]],]
+    value <- apply(sub_mt,2, use_func)
+    mt[names(gene_list)[i]] <- value
+  }
+  mt <- mt[names(gene_list)]
+  mt <- mt %>% mutate_if(.predicate = ~is.numeric(.), .funs = ~{a <- max(.); ./a})
+
+  if(filter){
+    val_mean <- apply(mt, 2, mean)
+    for(i in seq_along(gene_list))
+      temp <- mt[[names(gene_list)[i]]]
+    mt[[names(gene_list)[i]]] <- if_else(temp> val_mean[[i]], temp, 0)
+  }
+  if(add_id_cluster){
+    #mt$cluster <- object@meta.data[, label_name]
+    mt$cluster <- object@active.ident
+    mt$cell_id <- rownames(mt)
+  }
+  return(mt)
+}
+
 # geometric mean ----------------------------------------------------------
 
 gm_mean1 = function(a){prod(a)^(1/length(a))}
@@ -575,7 +605,7 @@ restart <- function(remotes, install_github) {
 #diff_test
 diff_test_vs <- function(ident.1, ident.2, object = data) {
   df <- FindMarkers(ident.1 = ident.1, ident.2 = ident.2, object = object)
-  df %>% rownames_to_column(var = "gene") %>% mutate(cluster = if_else(avg_logFC>0, ident.1, ident.2))
+  df <- df %>% rownames_to_column(var = "gene") %>% mutate(cluster = if_else(avg_logFC>0, ident.1, ident.2))
   return(df)
 }
 
@@ -754,6 +784,7 @@ add_sig_val <- function(object = data, marker_list, use_func = "mean", label_nam
   object_name <- as.character(substitute(object))
 
   df_list <- vector("list", length(marker_list))
+
   for(i in seq_along(marker_list)){
     df_list[[i]] <- sig_val(object = object, marker = marker_list[i], use_func = use_func) %>%
       add_m(add = switch(use_func, "mean" = "", "gm_mean" = "_gm"))
@@ -775,7 +806,54 @@ add_sig_val <- function(object = data, marker_list, use_func = "mean", label_nam
       use_name <- names(use_list)
 
     }
-    rank_table <- object@meta.data %>%  select(seurat_clusters, all_of(use_name)) %>%
+    rank_table <- object@meta.data %>%  dplyr::select(seurat_clusters, all_of(use_name)) %>%
+      group_by(seurat_clusters) %>% gather(-seurat_clusters, key = "signature", value = "value") %>%
+      group_by(seurat_clusters, signature) %>%
+      summarise(m = mean(value)) %>%
+      group_by(signature) %>%
+      mutate(max = max(m), score = m/max) %>%
+      group_by(seurat_clusters) %>%
+      mutate(rank = row_number(score)) %>%
+      filter(rank == 1) %>%
+      dplyr::select(seurat_clusters, signature)
+    use_label <- object@meta.data %>% left_join(rank_table, by = "seurat_clusters") %>% pull(signature)
+    object@meta.data[, marker_list[i]] <- use_label
+    }
+  }
+  if(overwrite){
+    assign(x = object_name, value = object, envir = .GlobalEnv)
+  } else return(object)
+
+}
+add_sig_val_ <- function(object = data, marker_list, use_func = "mean", label_name = "label", overwrite = F, add_signature_label = T){
+
+  #object <- eval(as.name(object_name))
+  object_name <- as.character(substitute(object))
+
+  df_list <- vector("list", length(marker_list))
+
+  for(i in seq_along(marker_list)){
+    df_list[[i]] <- sig_val_(object = object, marker = marker_list[i], use_func = use_func) %>%
+      add_m(add = switch(use_func, "mean" = "", "gm_mean" = "_gm"))
+  }
+
+  df_com <- df_list %>% purrr::reduce(cbind)
+
+  df_com <- df_com %>% keep(is.numeric)
+
+  object <- add_meta(df = df_com, object = object)
+
+  if(add_signature_label){
+
+    for(i in seq_along(marker_list)){
+    use_list <- get_list(marker = marker_list[[i]])
+    if(use_func == "gm_mean"){
+      use_name <- paste0(names(use_list), "_gm")
+    }else {
+      use_name <- names(use_list)
+
+    }
+    rank_table <- object@meta.data %>%  dplyr::select(seurat_clusters, all_of(use_name)) %>%
       group_by(seurat_clusters) %>% gather(-seurat_clusters, key = "signature", value = "value") %>%
       group_by(seurat_clusters, signature) %>%
       summarise(m = mean(value)) %>%
@@ -1060,7 +1138,7 @@ get_diff_test_marker <- function(diff_test_res, ...) {
 
 # tile_plot ---------------------------------------------------------------
 
-tile <- function(gene, object = data, order = F, plot_wrap = F, fil_val= NULL, color_label = T, ...) {
+tile_plot <- function(gene, object = data, order = F, plot_wrap = F, fil_val= NULL, color_label = T, ...) {
   if(str_detect(gene, "_list")){
     gene <- get_list(gene)
   }
@@ -1105,6 +1183,8 @@ tile <- function(gene, object = data, order = F, plot_wrap = F, fil_val= NULL, c
   if(order){
     use_df <- use_df %>% mutate( cluster = fct_reorder(cluster, avg_logCPM))
   }
+
+
 
   p <- use_df %>% ggplot(aes(cluster, gene, size = pct, colour = score)) + geom_point() +
     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
@@ -1331,10 +1411,10 @@ do_cor <- function(expr_df, gene, group_label = "subset", method = "pearson") {
   all_res_df <- tibble(gene = colnames(all_res), cor = as.numeric(all_res[1,])) %>% arrange(-cor)
   all_res_df$batch <- group_label
   return(all_res_df)
-  all_res_df %>% head(50) %>%
-    ggplot(aes(fct_reorder(gene,cor), cor, fill = gene)) + geom_bar(stat= "identity") + coord_flip() + guides(fill = F)
-  ggsave(filename = paste0(group_label, "_barplot.jpg"), device = "jpeg")
-  return(all_res_df)
+  # all_res_df %>% head(50) %>%
+  #   ggplot(aes(fct_reorder(gene,cor), cor, fill = gene)) + geom_bar(stat= "identity") + coord_flip() + guides(fill = F)
+  # ggsave(filename = paste0(group_label, "_barplot.jpg"), device = "jpeg")
+  # return(all_res_df)
 }
 
 do_cor_batch <- function(expr_df, gene, group_label = "subset", method = "pearson") {
@@ -1463,3 +1543,5 @@ my_add <- function(a,b) {
   }
   return(a)
 }
+
+
