@@ -825,7 +825,7 @@ add_sig_val <- function(object = data, marker_list, use_func = "mean", label_nam
   } else return(object)
 
 }
-add_sig_val_ <- function(object = data, marker_list, use_func = "mean", label_name = "label", overwrite = F, add_signature_label = T){
+add_sig_val_ <- function(object = data, marker_list, use_func = "mean", label_name = "label", overwrite = T, add_signature_label = T){
 
   #object <- eval(as.name(object_name))
   object_name <- as.character(substitute(object))
@@ -1462,15 +1462,38 @@ color_randam <- function(color_vec, n) {
 # assay type change -------------------------------------------------------
 
 
-rna <- function() {
-  DefaultAssay(object = data) <- "RNA"
-  data <<- data
+rna <- function(object = data) {
+  use_name <- as.character(substitute(object))
+  DefaultAssay(object = object) <- "RNA"
+  #global_value(object = object)
+  assign(x = use_name, value = object,envir = .GlobalEnv)
+}
+
+integ <- function(object = data) {
+  use_name <- as.character(substitute(object))
+  DefaultAssay(object = object) <- "integrated"
+  #global_value(object = object)
+
+  assign(x = use_name, value = object,envir = .GlobalEnv)
 }
 integ <- function() {
   DefaultAssay(object = data) <- "integrated"
   data <<- data
 }
 
+
+b <- function() {
+  a <- 2
+  global_value(a)
+}
+
+
+# change gloval value -----------------------------------------------------
+
+global_value <- function(object) {
+  use_name <- as.character(substitute(object))
+  assign(x = use_name, value = object,envir = .GlobalEnv)
+}
 
 
 # write_count_table -------------------------------------------------------
