@@ -2,6 +2,8 @@
 
 # data to list ------------------------------------------------------------
 
+
+
 df_to_list <- function(df) {
   df_list <- vector("list", nrow(df))
   df <- df %>% as.matrix()
@@ -1204,6 +1206,7 @@ tile_plot <- function(gene, object = data, order = F, plot_wrap = F, fil_val= NU
         scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
                                values = c(1.0,0.7,0.6,0.4,0.3,0))
       p <- p + theme(axis.text.y = element_text(colour = label_color_use),
+                     axis.text.x = element_text(angle = 90, vjust = 0.5)
                      # panel.background = element_rect(fill = "#F5F5F5",
                      #                                 colour = "#F5F5F5",
                      #                                 size = 0.5, linetype = "solid"),
