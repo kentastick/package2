@@ -1,4 +1,36 @@
 
+isPP <- function(n){
+  a_list <- c()
+  h <- n
+  for(i in 2:length(n)){
+    while(n%%i ==0){
+      a_list<-c(a_list, i)
+      n = n/i
+    }
+  }
+  return(a_list)
+}
+
+n = 20
+prime_list <- c()
+for(i in 2:length(n)){
+  print(i)
+  while(n%%i ==0){
+    prime_list <- c(prime_list, i)
+    n <-  n/i
+    print(n)
+    if(n == 1)break
+  }
+}
+
+for(i in 2:10){
+  while(i<10){
+    print(i)
+
+  }
+
+}
+
 #
 prime_n <- function(){
   x <- as.numeric(readline("Natural number? "))
