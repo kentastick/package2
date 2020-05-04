@@ -298,9 +298,18 @@ signature_plot <- function(marker = "gene_list", object = data, use_func = "mean
 #                            values = c(1.0,0.7,0.6,0.4,0.3,0))
 # }
 
-signature_tile <- function(marker = "gene_list", object = data, use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+signature_tile <- function(marker = "gene_list", object = data,title = "", use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
     df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
     df <- sig_val2(score_mt = df)
+    df %>% ggplot(aes(cluster, signature, fill = score)) + geom_tile(color = "black") +
+    #scale_fill_gradient2(low = "blue",  mid = "white", high = "red", midpoint = 0.5)
+     scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+                            values = c(1.0,0.7,0.6,0.4,0.3,0)) +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.2)) + labs(title = title)
+}
+signature_tile_within <- function(marker = "gene_list", object = data, use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
+    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
+    df <- sig_val3(score_mt = df)
     df %>% ggplot(aes(cluster, signature, fill = score)) + geom_tile(color = "black") +
     #scale_fill_gradient2(low = "blue",  mid = "white", high = "red", midpoint = 0.5)
      scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
@@ -313,9 +322,10 @@ signature_tile <- function(marker = "gene_list", object = data, use_func = "mean
 signature_plot_within <- function(marker = "gene_list", object = data, use_func = "mean", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
     df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
     df <- sig_val3(score_mt = df)
-    df %>% ggplot(aes(signature, cluster, colour =score, size = fraction_of_cells)) + geom_point() +
+    df %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
-                           values = c(1.0,0.7,0.6,0.4,0.3,0))
+                           values = c(1.0,0.7,0.6,0.4,0.3,0))+
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.2))
 }
 
 
@@ -642,6 +652,35 @@ diff_test_batch <- function(x, object = data, min.pct = 0.1, min.diff.pct = 0.1,
   return(marker)
 }
 
+
+
+diff_test_batch_2 <- function (x, object = data, min.pct = 0.1, min.diff.pct = 0.1,
+          logfc.threshold = 0.25, only.pos = T, ...)
+{
+  x <- substitute(x)
+  if (!is.character(x)) {
+    x <- deparse(x)
+  }
+  batch_list <- as.character(unique(pull(object@meta.data,
+                                         x)))
+  marker <- tibble()
+  for (i in seq_along(batch_list)) {
+    cat("executing ", batch_list[i], "process\n")
+    use_id <- rownames(object@meta.data[pull(object@meta.data,
+                                             x) == batch_list[i], ])
+    sub_temp <- SubsetData(object, cells = use_id)
+    temp <- FindAllMarkers(object = sub_temp, min.pct = min.pct,
+                           min.diff.pct = min.diff.pct, logfc.threshold = logfc.threshold,
+                           only.pos = only.pos, ...)
+    if (nrow(temp) == 0)
+      next
+    temp$batch <- batch_list[i]
+    marker <- marker %>% bind_rows(temp)
+  }
+  return(marker)
+}
+
+
 #add entrez id list
 diff_marker_convert <- function(marker_df) {
   parse_name <- deparse(substitute(marker_df))
@@ -695,11 +734,12 @@ convert_gene <- function(x) {
 
 # cell_origin bar plot ----------------------------------------------------
 
-bar_origin <- function(bar_x, bar_y,object= data, position = "fill", randam = T) {
+bar_origin <- function(bar_x, bar_y,object= data,angle = 60, position = "fill", randam = T) {
   bar_x <- enquo(bar_x)
   bar_y <- enquo(bar_y)
   p <- object@meta.data %>% dplyr::select(!!bar_x, !!bar_y) %>%
-    ggplot(aes(!!bar_x, fill = !!bar_y)) + geom_bar(position = position)
+    ggplot(aes(!!bar_x, fill = !!bar_y)) + geom_bar(position = position) +
+    theme(axis.text.x = element_text(angle = angle, vjust = 0.5,size = rel(1.5)))
   if(randam){
     n_color <- object@meta.data %>% dplyr::select(!!bar_y) %>% n_distinct()
    p <- p + scale_fill_manual(values = gg_color_hue(n = n_color, randam = T))
@@ -780,7 +820,7 @@ add_info <- function(data) {
 #
 # }
 
-add_sig_val <- function(object = data, marker_list, use_func = "mean", label_name = "label", overwrite = F, add_signature_label = T){
+add_sig_val <- function(object = data, marker_list, use_func = "mean", label_name = "label", overwrite = T, add_signature_label = T){
 
   #object <- eval(as.name(object_name))
   object_name <- as.character(substitute(object))
@@ -917,8 +957,9 @@ add_m <- function(df_list, add = "_m") {
 # subset filter---------------------------------------------------------
 
 sub_fil <- function(object = data, ...) {
+  object$id <- colnames(object)
   use_id <- object@meta.data %>% filter(...) %>% pull(id)
-  res <- subset(x = object, cells = use_id)
+  res <- Seurat:::subset.Seurat(x = object, cells = use_id)
   return(res)
 }
 
@@ -1140,7 +1181,7 @@ get_diff_test_marker <- function(diff_test_res, ...) {
 
 # tile_plot ---------------------------------------------------------------
 
-tile_plot <- function(gene, object = data, order = F, plot_wrap = F, fil_val= NULL, color_label = T, ...) {
+tile_plot <- function(gene, object = data, title = "", order = F, plot_wrap = F, fil_val= NULL, color_label = T, ...) {
   if(str_detect(gene, "_list")){
     gene <- get_list(gene)
   }
@@ -1214,12 +1255,79 @@ tile_plot <- function(gene, object = data, order = F, plot_wrap = F, fil_val= NU
                      #                                 colour = "black"),
                      #panel.grid.minor = element_line(size = 0.25, linetype = 'solid',colour = "black")
                      ) +
-        scale_fill_manual(values = label_color)
+        scale_fill_manual(values = label_color) + labs(title = title)
       return(p)
     }
 
 
-  }else return(p)
+  }else return(p +theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + labs(title = title))
+
+}
+
+
+
+tile_plot2 <- function(gene, object = data, title = "", order = F, plot_wrap = F, fil_val= NULL, color_label = T, ...) {
+  if(str_detect(gene, "_list")){
+    gene <- get_list(gene)
+  }
+  DefaultAssay(object = object) <- "RNA"
+
+  if(class(gene) == "list" ){
+    gene <- remove_list_dup(gene)
+    gene <-   fil_gene(gene, object = object)
+    feature <- unlist(gene)
+    label_df <- enframe(gene, name = "label",value = "gene") %>% unnest
+
+    for_tile_legend_df <<- label_df
+  } else{
+    feature <- fil_gene(gene, object = object)
+  }
+  use_id <- pick_id(object = object, ...)
+
+  #make df of cell gene matrix
+  use_df <- object@assays$RNA@data[feature, use_id]
+  cluster_label <- object@active.ident
+
+  if(length(feature) ==1){
+    use_df <- use_df %>% as.tibble()
+  }else{
+    use_df <- t(as.matrix(use_df)) %>% as.tibble()
+  }
+  use_df<- use_df %>% add_column(cluster = cluster_label)
+
+  #calculate expression score and percent expression
+   use_df <- use_df %>% tidyr::pivot_longer(-cluster, names_to = "gene", values_to = "logCPM") %>%
+    group_by(cluster, gene) %>% summarise(avg_logCPM = mean(logCPM), pct = sum(logCPM>0)/n()) %>%
+    group_by(gene) %>% mutate(score = avg_logCPM/max(avg_logCPM), m = mean(avg_logCPM))
+
+
+  if(class(gene) == "list" ){
+    use_df <- use_df %>% left_join(label_df, by = c("gene"))
+    use_df <- use_df %>% ungroup() %>%  mutate(gene = fct_relevel(gene, feature))
+
+  }
+  if(order){
+    use_df <- use_df %>% mutate( cluster = fct_reorder(cluster, avg_logCPM))
+  }
+
+  p <- use_df %>% ggplot(aes(cluster, gene, size = pct, colour = score)) + geom_point() +
+    scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+                           values = c(1.0,0.7,0.6,0.4,0.3,0))
+
+  if(class(gene) == "list"){
+    if(color_label){
+      n <- length(gene)
+      label_color <- color_randam(gg_color_hue(n), n)
+      label_color_use <- label_color[as.numeric(plyr::mapvalues(label_df$label, from = unique(label_df$label), to = 1:n))]
+      #label_color_use <- label_color[as.numeric(as.factor(label_df$label))]
+      use_df <- use_df %>% mutate(label_color = label_color[as.numeric(as.factor(label))])
+      p <- use_df %>% ggplot(aes(gene, cluster, size = pct, fill = label, colour = score)) + geom_point() +
+        scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+                               values = c(1.0,0.7,0.6,0.4,0.3,0))
+      p <- p + theme(axis.text.x = element_text(colour = label_color_use, angle = 90, vjust = 0.5)) + scale_fill_manual(values = label_color) + labs(title = title)
+      return(p)
+    }
+  }else return(p +theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + labs(title = title))
 
 }
 
@@ -1419,6 +1527,24 @@ do_cor <- function(expr_df, gene, group_label = "subset", method = "pearson") {
   # ggsave(filename = paste0(group_label, "_barplot.jpg"), device = "jpeg")
   # return(all_res_df)
 }
+do_cor2 <- function(expr_df, gene, group_label = "subset", method = "pearson") {
+  nu <- str_which(colnames(expr_df), paste0("^", gene, "$"))
+  all_res_p_value <- outer(expr_df[gene],expr_df[-nu], function(X, Y){
+    mapply(function(...) cor.test(..., na.action = "na.exclude")$p.value,
+           X, Y)
+  })
+  all_res_estimate <- outer(expr_df[gene],expr_df[-nu], function(X, Y){
+    mapply(function(...) cor.test(..., na.action = "na.exclude")$estimate,
+           X, Y)
+  })
+  all_res_df <- tibble(gene = colnames(all_res_estimate), cor = as.numeric(all_res_estimate[1,]), p_value = as.numeric(all_res_p_value[1,])) %>% arrange(-cor)
+  all_res_df$batch <- group_label
+  return(all_res_df)
+  # all_res_df %>% head(50) %>%
+  #   ggplot(aes(fct_reorder(gene,cor), cor, fill = gene)) + geom_bar(stat= "identity") + coord_flip() + guides(fill = F)
+  # ggsave(filename = paste0(group_label, "_barplot.jpg"), device = "jpeg")
+  # return(all_res_df)
+}
 
 do_cor_batch <- function(expr_df, gene, group_label = "subset", method = "pearson") {
   nu <- str_which(colnames(expr_df), paste0("^", gene, "$"))
@@ -1556,7 +1682,10 @@ batch_cor_heatmap <- function(av_df_batch, method = "pearson") {
     geom_tile()+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5)
                        #axis.ticks.y = element_blank(),axis.text.y = element_blank(),
                        #axis.ticks.x = element_blank(),axis.text.x = element_blank()
-                       )+scale_fill_gradient2(low = "blue", mid = "yellow", high = "red", midpoint = 0.5)
+                       )+
+    #scale_fill_gradient2(low = "blue", mid = "yellow", high = "red", midpoint = 0.9)
+    scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
+                         values = c(1.0,0.9,0.5,0.4,0.25,0))
 }
 
 
@@ -1570,4 +1699,12 @@ my_add <- function(a,b) {
   return(a)
 }
 
+
+
+# filter low quolity cells ------------------------------------------------
+
+ #sig_val %>% sig_val2  %>% group_by(cluster) %>% mutate(rank = row_number(-mean)) %>% arrange(cluster) %>% filter(rank == 1)
+
+
+#output cell type table
 

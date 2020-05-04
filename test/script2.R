@@ -2,34 +2,108 @@ library(Seurat)
 library(package2)
 library(tidyverse)
 library(clipr)
+library(gghighlight)
 
+
+bar_origin(disease, label2)
+
+data_n <- package2::sub_fil(data, !disease %in% c("HCC", "ICC"))
+
+#marker_list
+
+segal_list3 <-  list(Hepatocyte =c("AHSG", "ALB", "ASGR1", "FN1", "HNF4A", "HP","ORM1", "RBP4"),
+                     Imature_Hepatocyte = c("CYP3A7", "GPC3", "AFP", "DLK1"),
+                     BEC_common = c("KRT19", "KRT7", "SPP1", "CD133", "CD24", "SOX9", "STAT1", "EPCAM", "FGFR2"),
+                     Mature_BEC = c("AGR2", "CLDN4", "CLDN10", "CXCL2", "LGALS2", "MMP7", "MUC1", "MUC5B", "NQO1", "ONECUT2", "TACSTD2", "TFF1", "TFF2", "TFF3", "TSPAN8"),
+                     Imature_BEC = c("CAV1", "CDH6", "CLDN6", "CTNND2", "GPRC5B", "MCAM", "NCAM1", "SFRP5", "STAT4"),
+                     Cycling = c("MKI67", "CCNA2", "CCNB2", "STMN1"))
+
+save_list(segal_list3)
+
+  list(hepatic = c("FGL1", "APOE", "APOH", "TF", "ORM1", "AHSG","APOA2", "APOC3"),
+
+     Mature_BEC =c("MUC5B", "MUC3A", "ONECUT2", "TMEM45B","MUC1", "CD44", "TACSTD2", "CLDN4", "KRT7", "EPCAM", "CD24", "KRT19", "SPP1"),
+     c("CYP3A7", "GPC3", "AFP", "DLK1"),
+     c("NCAM1", "MUC6", "FGFR2", "GPRC5B", "SLC12A2", "PROM1", "SOX9", "CTNND2", "MCAM", "CDH6", "CXCL2", "ABCB9"))
+
+
+
+
+
+
+#label4 is default
+sa_data(hepato_cholangio_combined_filtered)
+rna()
+
+#cell number
+data$disease %>% table ->a
+b <- a %>% as.list %>% enframe %>% mutate(value = unlist(value), value = paste0(name, ": ", value)) %>% pull(value)
+b %>% reduce(~paste(.x,.y, sep = ", ")) %>% write_clip()
+
+
+data <- add_info(data)
 #labeling
 use_id <- up() %>% CellSelector()
+prolife_id <- use_id; sav(prolife_id)
 data <-SetIdent(data, use_id,value = 17)
 data$seurat_clusters <- Idents(data)
+data$disease <- data[[]] %>% mutate(disease = case_when(batch == "pbc_case1"~"PBC_1",
+                                        batch == "pbc_case2"~"PBC_2",
+                                        TRUE~disease)) %>% pull(disease)
+data$disease <- fct_relevel(data$disease, c("PBC_1", "PBC_2", paste0("NL_", 1:4), "FL", "CH", "HCC", "ICC"))
 data$label <- data$seurat_clusters %>% fct_collapse(Hep = c("1","3","4","5","11","14", "16"), im_Hep = "15",
-                                                    HHyP = c("0","2","7","12"), BEC = c("9"),  prolifer= "17" )
+                                                    HHyP = c("0","2","7","12"), BEC = c("9"),  Prolifer= "17" ) %>%
+  fct_relevel(c("Hep", "im_Hep", "BEC", "HHyP", "Prolifer"))
+
+data$seurat_clusters <- data$seurat_clusters %>% fct_reorder(as.numeric(data$label)) %>% fct_drop()
+data$seurat_clusters
+data$label2 <- data[[]] %>% mutate(n = plyr::mapvalues(seurat_clusters, from = levels(data$seurat_clusters),
+                                                       to = c("", "", "", "", "", "", "","","", "(1)", "(2)", "(3)", "(4)", "")),
+                                   name = paste0(label,n)) %>% mutate(name = fct_reorder(name, as.numeric(label))) %>%
+  pull(name)
+data$label3 <- paste0(data$label2, "_", data$disease)
+data$label3 <- data[[]] %>% mutate(label3 = fct_reorder(label3, as.numeric(disease))) %>% pull(label3)
+data$label3 <- data[[]] %>% mutate(label3 = fct_reorder(label3, as.numeric(label2))) %>% pull(label3)
+
+id_ch("label2")
+data <- sub_fil(data, !disease %in% c("HCC", "ICC"))
+
+signature_tile("segal_list")
+tile_plot("segal_list")
 
 #remove low expresion cells
 data <- sub_fil(data, !seurat_clusters %in% c("6", "8", "10","13"))
+
 data <- sub_fil(data, !disease %in% c("BL","unknown"))
+
+
 #remove dispersed cells
 use_id2 <- up() %>% CellSelector()
+remove_id <- use_id2
+sav(remove_id)
 data <- sub_fil(data, id %in% use_id2)
 
-#for orderring cell label
-data$seurat_clusters <- data$seurat_clusters %>% fct_reorder(as.numeric(data$label)) %>% fct_drop()
-signature_plot()
-data$seurat_clusters
-data$label2 <- data[[]] %>% mutate(n = plyr::mapvalues(seurat_clusters, from = levels(data$seurat_clusters),
-                                                       to = c("", "(1)", "(2)", "(3)", "(4)", "(1)", "(2)","(3)", "(4)", "(5)", "(6)", "(7)", "", "")),
-                                   name = paste0(label,n)) %>% mutate(name = fct_reorder(name, as.numeric(label))) %>%
-  pull(name)
+#zonation analysis
+sub_nl <-sub_fil(data, str_detect(label2, "Hep"), !disease %in% c("CH", "HCC", "ICC", "FL"))
+
+add_sig_val(sub_nl, "zone_list")
+vl(object = sub_nl,c("zone1_", "zone2_"))
+signature_tile("zone_list", object = sub_nl)
+sub_nl$label4 <- paste0(sub_nl$label2, "_", sub_nl$disease) %>% fct_relevel(sort(unique(sub_nl$label4)))
+
+id_ch("label4", object = sub_nl)
+
+
+#meke clustring map
+df <- sig_val(object = data, "segal_list")
+df2 <- sig_val2(df)
+df2 %>% pivot_wider(id_cols = c(cluster), names_from = signature, values_from = mean) -> df3
+df3 %>% dist() %>% hclust() %>% plot
+
 #note  contain cancer cells
 sa_data(hepato_cholangio_combined_filtered)
-
-#marker_6 <- diff_test_vs(ident.1 = "6", ident.2 = NULL, object = data)
-#marker_8 <- diff_test_vs(ident.1 = "8", ident.2 = NULL, object = data)
+id_ch("label2")
+up()
 
 #data filtering
 data <- readRDS("~/single_cell/single_cell_project/data/Seurat_object/hepato_cholangio/hepato_cholangio_combined_filtered.rds")
@@ -58,6 +132,8 @@ FetchData(data_hep, c("KRT7", "KRT19"), slot = "data")
 
 
 #Monocle
+
+
 mono <- make_monocle3(data_cho)
 mono <- do_monocle(mono)
 mop(mono, color_cells_by = "label2")
@@ -350,3 +426,85 @@ res_enrich_hal %>% enrichplot:::barplot.enrichResult(height = .,font.size = 20)
 res_cor_hal <- res_cor_hal %>% mutate(color = if_else(gene %in% zone_list$zone1_, "red", "black"))
 res_cor_hal %>% head(40) %>% ggplot(data = .,aes(fct_reorder(gene,cor), cor, fill = c("#D48C8C"))) + geom_bar(stat = "identity", show.legend = F) + coord_flip()+
   theme(axis.text.y = element_text(colour = res_cor_gs$color))
+
+#cancer study
+data$label_cancer <- data[[]] %>% mutate(a = if_else(disease %in% c("HCC", "ICC"), "C", "N" )) %>% pull(a)
+id_ch("label_cancer")
+marker_c_vs_n <- diff_test(data)
+
+setwd("~/single_cell/single_cell_project/data/GSE125449/GSE125449_set1/GSE125449_Set1_samples.txt")
+ma_id <- read_delim("GSE125449_Set1_samples.txt",delim =  "\t")
+data[[]] %>% filter(str_detect(batch, "ma_set1")) %>% select(id)
+ma_id$`Cell Barcode` <- paste0(ma_id$`Cell Barcode`, "_6")
+ma_id$Type %>% table
+
+malignant_id1 <- ma_id %>% filter(Type == "Malignant cell") %>% pull(`Cell Barcode`)
+
+
+setwd("~/single_cell/single_cell_project/data/GSE125449/GSE125449_set2/GSE125449_Set2_samples.txt")
+ma_id2 <- read_delim("GSE125449_Set2_samples.txt",delim =  "\t")
+data[[]] %>% filter(str_detect(batch, "ma_set2")) %>% select(id)
+ma_id2$`Cell Barcode` <- paste0(ma_id2$`Cell Barcode`, "_7")
+malignant_id2 <-ma_id2 %>% filter(Type == "Malignant cell") %>% pull(`Cell Barcode`)
+malignant_id <- c(malignant_id1, malignant_id2)
+
+data$label_cancer <- data[[]] %>% mutate(a = if_else(id %in% malignant_id, "Malignant", "non_malignant")) %>% pull(a) %>%
+  fct_relevel(c("Malignant", "non_malignant"))
+
+data$label_cancer2 <- data[[]] %>% mutate(a = paste0(label2, "_", label_cancer), b = fct_reorder(a, as.numeric(label_cancer)),
+                                          c = fct_reorder(b, as.numeric(label2))) %>% pull(c)
+
+
+id_ch("label_cancer2")
+up()
+signature_tile("segal_list")
+signature_tile("Epithelial_list2")
+tile_plot("segal_list")
+marker_c_vs_n <- diff_test(data)
+add_sig_val(marker_list = "Epithelial_list", overwrite = T)
+up() + scale_color_manual(values = c("#40C75B", "#CC5462"))
+up() + scale_color_manual(values = gg_color_hue(2))
+
+vl("epithelial")
+tile_plot("Epithelial_list2")
+
+marker_c_vs_n_batch <- diff_test_batch("label2")
+marker_c_vs_n_batch %>% write_clip()
+sub_c <- sub_fil(data, label_cancer == "Malignant")
+id_ch(use_meta = "label2", sub_c)
+marker_c <- diff_test(sub_c)
+id_ch("disease", object = sub_c)
+up(sub_c)
+
+
+bar_origin(sample, label2, object = sub_c)
+bar_origin(disease, label2, object = sub_c)
+sub_c$sample <- sub_c$batch %>% str_extract("(?<=_)\\w{1,6}$") %>%  fct_relevel(c(paste0("HCC_",c(3,4,5,6,8,9)), paste0("ICC_",c(1,2,3,5,6,7,8,9,10))))
+data$sample <- data$batch %>% str_extract("(?<=_)\\w{5,6}$") %>%  fct_relevel(c(paste0("HCC_",c(3,4,5,6,8,9)), paste0("ICC_",c(1,2,3,5,6,7,8,9,10))))
+
+id_ch("label_cancer")
+vl(c("cycle", "epithelial", colnames(data[[]])[3]), pt.size = 0)
+sub_c$label_cancer3 <- paste0(sub_c$label2, "_", sub_c$sample)
+sub_c$label_cancer3 <- sub_c[[]] %>% mutate(a = paste0(label2, "_", sample), b = fct_reorder(a, as.numeric(sample)),
+                                          c = fct_reorder(b, as.numeric(label2))) %>% pull(c)
+
+id_ch("label_cancer3", sub_c)
+signature_tile("segal_list", object = sub_c)
+marker_c
+sav(sub_c)
+
+
+
+sub_c <- sub_fil(data, disease %in% c("HCC", 'ICC'))
+up(sub_c)
+id_ch("label_cancer", sub_c)
+res <- diff_test_batch("label2", object = sub_c)
+up(sub_c)
+
+mono <- make_monocle3(sub_c)
+mono <- do_monocle(mono)
+mop(mono, color_cells_by = "label_cancer")
+
+
+id_ch("label_cancer2", sub_c)
+signature_tile("segal_list", object = sub_c)
