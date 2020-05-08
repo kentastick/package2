@@ -172,6 +172,18 @@ ggsave("plot10.jpg")
 
 saveRDS(data, "pbc_case2.rds")
 
+#cell labeling
+signature_plot(object = pbc_case2)
+
+a <- function(group) {
+  group <- rlang::enquo(group)
+  #group <- rlang::syms(group)
+  mtcars %>% group_by(!!group) %>% summarise_all(.funs = mean)
+}
+mtcars$mpg %>% summary
+mtcars %>% mutate(mpg = cut())
+a(group = "cyp")
+
 
 # GSE125449 carcinoma----------------------------------------------------------------
 #trace(Read10X, edit=TRUE)
