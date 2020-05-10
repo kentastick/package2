@@ -7,7 +7,20 @@ library(gghighlight)
 
 bar_origin(disease, label2)
 
-data_n <- package2::sub_fil(data, !disease %in% c("HCC", "ICC"))
+data <- package2::sub_fil(data, !disease %in% c("HCC", "ICC"))
+
+
+data_c <- sub_fil(data, !str_detect(label2, "Hep"))
+bar_origin(label2, disease,object = data_c)
+
+sav(malignant_id)
+malignant_id <- malignant_id %>% str_remove("\\w{2}$")
+
+cho$label_cancer <- cho[[]] %>% mutate(a = if_else(id %in% malignant_id, "Malignant", "non_malignant")) %>% pull(a) %>%
+  fct_relevel(c("Malignant", "non_malignant"))
+ma_set1$label_cancer <- ma_set1[[]] %>% mutate(a = if_else(id %in% malignant_id, "Malignant", "non_malignant")) %>% pull(a) %>%
+  fct_relevel(c("Malignant", "non_malignant"))
+cho_sub <- sub_fil(cho, label2 == "BEC",label_cancer == "non_malignant")
 
 #marker_list
 
@@ -37,8 +50,8 @@ rna()
 
 #cell number
 data$disease %>% table ->a
-b <- a %>% as.list %>% enframe %>% mutate(value = unlist(value), value = paste0(name, ": ", value)) %>% pull(value)
-b %>% reduce(~paste(.x,.y, sep = ", ")) %>% write_clip()
+b <- a %>% as.list %>% enframe %>% mutate(value = unlist(value), value = paste0(name, ": ", value)) %>% dplyr::pull(value)
+b %>% purrr::reduce(~paste(.x,.y, sep = ", ")) %>% write_clip()
 
 
 data <- add_info(data)
@@ -174,10 +187,10 @@ bar_origin(disease, label2)
 
 #pathway plot
  #hepatocyte
-  signature_tile("zone_list", object = data_hep)
+signature_tile("zone_list", object = data_hep)
 package2::tile("zone_list",object = data_hep)
-data_hep@assays$RNA
 DefaultAssay(data_hep) <- "RNA"
+up(data_hep)
 marker_hep <- diff_test(data_hep)
 sav(marker_hep)
 marker_hep_rna %>% write_clip()
@@ -186,6 +199,10 @@ marker_hep %>% write_clip()
 marker_hep_ano <- read_delim("marker_hep_anotation.txt", delim = "\t")
 marker_hep <- marker_hep %>% diff_marker_convert()
 marker_hep <- marker_hep %>% do_geneano()
+
+marker_krt7 <- marker_krt7 %>% diff_marker_convert()
+marker_krt7 <- marker_krt7 %>% do_geneano()
+
 marker_hep %>% mutate(bar = map2(res_enricher, cluster, ~barplot(.x, title = .y)))
 marker_hep %>% mutate(a = map2(res_enricher, cluster,~.x@result %>% mutate(cluster = .y, n  = row_number()) %>% filter(p.adjust<0.05))) %>% pull(a) %>%
   purrr::reduce(rbind) %>% write_clip()
@@ -196,7 +213,25 @@ use_colum <- use_df3 %>% group_by(cluster) %>% nest %>% pull(data)
 marker_hep$res_enricher_fil <- use_colum
 marker_hep <- marker_hep %>% mutate(res_enricher_fil = map2(res_enricher, res_enricher_fil, ~{a <- .x; a@result <- .y;return(a)}))
 marker_hep <- marker_hep %>% mutate(bar = map2(res_enricher_fil, cluster, ~enrichplot:::barplot.enrichResult(.x, title = .y,font.size = 20)))
-marker_hep$bar
+
+cell_marker <- read_excel("~/single_cell/single_cell_project/cell_marker.xlsx",
+                          sheet = "marker_hep_enrich")
+num = 6
+cell_marker %>% filter(mark==1, cluster == paste0("Hep","(",deparse(num),")")) %>% mutate_at(vars(p.adjust,Count),as.numeric) %>%
+  ggplot(aes(fct_reorder(Description, -p.adjust), Count)) +
+  geom_bar(stat = "identity", fill = gg_color_hue(7)[num]) + coord_flip() +
+  theme(axis.text.y  = element_text(size = 15), plot.title = element_text(size = rel(1.5))) +
+  labs(title = paste0("Hep","(",deparse(num),")"), x = "") #+ scale_y_continuous(breaks = seq(0,10,5))
+
+cell_marker %>% filter(mark==1) %>% mutate_at(vars(p.adjust,Count),as.numeric) %>%
+  ggplot(aes(fct_rev(fct_relevel(Description, cell_marker$Description)), Count, fill = cluster)) +
+  geom_bar(stat = "identity", position = "dodge") + coord_flip() +
+  theme(axis.text.y  = element_text(size = 15))
+
+
+labs
+
+
 
  #cholangiocyte
 marker_cho2 <- diff_test(data_cho)
@@ -223,37 +258,59 @@ marker_cho2_res_enrich <- a
 sav(marker_cho2_res_enrich)
 
 
-#KRT7 analaysis
-VlnPlot(data_hep, features = "KRT7")
-df_hep <- get_df(data_hep)
-res_cor_krt7 <- do_cor(expr_df = df_hep, group_label = "krt", gene = "KRT7", method = "pearson")
-res_cor_krt7 %>% head(30) %>%  ggplot(aes(fct_reorder(gene,cor), cor, fill = c("#2CD2DB"))) + geom_bar(stat = "identity") +
-  coord_flip() + guides(fill = F)+ xlab("correlation")
-use_gene <- res_cor_krt7 %>% head(100) %>% .$gene
-df_hep_sub <- df_hep[c("KRT7", use_gene)]
+#KRT7 and VIM analaysis
+up(data_hep)
+df <- get_df(data_hep)
+res_cor_krt7 <- do_cor(expr_df = df, group_label = "krt", gene = "KRT7", method = "pearson")
+res_cor_vim <- do_cor(expr_df = df, group_label = "krt", gene = "VIM", method = "pearson")
 
-df_hep %>% ggplot(aes(KRT7, FXYD2)) + geom_point()
-df_hep %>% ggplot(aes(KRT7, TACSTD2)) + geom_point()
-sav(res_cor_krt7)
+res_cor_krt7 %>% head(30) %>%  ggplot(aes(fct_reorder(gene,cor), cor, fill = c("#2CD2DB"))) + geom_bar(stat = "identity") +
+  coord_flip() + guides(fill = F)+ labs(y = "Correlation", x = "") +
+  theme(panel.background = element_rect(fill = "white"), panel.border = element_rect(fill = NA, colour = "black"))
+
+res_cor_vim %>% filter(!str_detect(gene, "^MT-|^MTRN")) %>%  head(30) %>%  ggplot(aes(fct_reorder(gene,cor), cor)) + geom_bar(stat = "identity", fill = gg_color_hue(2)[2]) +
+  coord_flip() + guides(fill = F)+ labs(y = "Correlation", x = "") +
+  theme(panel.background = element_rect(fill = "white"), panel.border = element_rect(fill = NA, colour = "black"))
+
+df_hep_sub <- df_hep[c("KRT7", use_gene)]
+df$KRT7 %>% filter(.>3) %>% hist()
 add_meta_binval(object = data_hep ,gene = "KRT7")
 id_ch("KRT7_bin", data_hep)
+vl("KRT7", data_hep)
 
-up(data_hep)
+res_krt7_enrich <- res_cor_krt7 %>% filter(cor > 0.2) %>% pull(gene) %>% convert_gene(.) %>% .$ENTREZID %>% geneano_enricher(gene_entrez = .)
 
- #extract krt7 strong positive cells within hepatocyte
+
+#extract krt7 strong positive cells within hepatocyte
+
+
+add_meta_binval(gene = "KRT7", data)
+id_ch("label2")
 use_id <- data_hep[[]] %>% filter(KRT7_bin == "strong") %>% pull(id)
-data_hep <- SetIdent(data_hep, use_id, value = "krt7Hep")
+data_hep <- SetIdent(data_hep, use_id, value = "KRT7_posi")
+id_ch("label2", data_hep)
+up(data_hep)
+data_hep$label6 <- Idents(data_hep)
+marker_krt7 <- diff_test(data_hep)
+id_ch(use_meta, object = data_hep)
 data_hep$label3 <- Idents(data_hep)
 up(data_hep)
 id_ch("label3")
-
 data <- SetIdent(data, cells = use_id, value = "KRT7posi_Hep")
 data$label3 <- Idents(data)
-id_ch("label3")
+id_ch("label2")
+data<- SetIdent(data, cells = use_id, value = "KRT7pos_Hep")
+data$krt7 <- Idents(data)
+id_ch("krt7")
 up()
+signature_tile("segal_list2")
+segal_list
+
 
 tile("segal_list2")
-signature_tile("segal_list2")
+signature_tile("segal_list")
+tile_plot("segal_list")
+
 pick_id(object = data_hep, str_detect(label2, "Hep")&KRT7_bin =="strong") ->use_id
 marker_krt7_within_all <- diff_test(data)
 sav(marker_krt7_within_all)
@@ -326,15 +383,38 @@ up(data_sub)
 diff_test(data, logFC)
 marker_ <- FindAllMarkers(data, logfc.threshold = log(2), min.pct = 0.25, only.pos = T)
 
-#VIM
+# VIM analysis ------------------------------------------------------------
+data_hep
+data_cho <- sub_fil(data, !str_detect(label2, "Hep"))
+use_id <- data[[]] %>% filter(label2 == "HHyP(3)") %>% pull(id)
+data_hhyp3 <- subset(data, cells = use_id)
+df_hhyp3 <- get_df(data_hhyp3)
+res_cor_vim_hhyp3 <- do_cor(df_hhyp3, gene = "VIM")
+res_cor_vim_hhyp3
+
 up(data_cho)
 ump("VIM")
 VlnPlot(data_cho, "VIM")
-df_cho <- get_df(data_cho)
-res_cor_vim <- do_cor(expr_df = df_cho, group_label = "vimentin", gene = "VIM", method = "pearson")
-sav(res_cor_vim)
-res_cor_vim %>% head(50) %>%
-  ggplot(aes(fct_reorder(gene,cor), cor, fill = c("#D96464CF"))) + geom_bar(stat= "identity") + coord_flip() + guides(fill = F)
+
+df <- get_df(data_cho)
+res_cor_vim <- do_cor(expr_df = df, group_label = "vimentin", gene = "VIM", method = "pearson")
+
+res_cor_vim_hhyp3 %>% filter(cor > 0.2) %>%
+  ggplot(aes(fct_reorder(gene,cor), cor, fill = gg_color_hue(1))) + geom_bar(stat= "identity") + coord_flip() + guides(fill = F) +
+  scale_y_continuous(breaks = seq(0,0.25, 0.1)) + theme(panel.background = element_rect(fill = "white"), panel.border = element_rect(fill = NA, colour = "black"))
+res_vim_enrich <- res_cor_vim_hhyp3 %>% filter(cor > 0.15) %>% pull(gene) %>% convert_gene(.) %>% .$ENTREZID %>% geneano_enricher(gene_entrez = .)
+
+cell_marker <- read_excel("~/single_cell/single_cell_project/cell_marker.xlsx",
+                          sheet = "vim")
+cell_marker %>% filter(mark ==1) %>% ggplot(aes(fct_reorder(Description,-p.adjust), Count, fill = -p.adjust)) +
+  geom_bar(stat = "identity") + coord_flip() +
+  labs(x = "") + theme(axis.text.y = element_text(size = 13),panel.background = element_rect(fill = "white"), panel.border = element_rect(fill = NA, colour = "black")) +
+   scale_fill_gradient(low = "blue", high = "red") + labs(fill = "p.adjust")
+
+rna(data_bec)
+data_bec <- sub_fil(data, label2 == "BEC")
+vl(c("KRT19", "CD24", "EPCAM","MUC1", "CCL2", "CXCL8","CXCL2", "CXCL12"), object = data_bec)
+
 df_cho %>% ggplot(aes(VIM, TAGLN2)) + geom_point()
 df_cho %>% ggplot(aes(VIM, MDK)) + geom_point()
 res_cor_vim$gene %>% head(100) %>% write_clip()
@@ -353,12 +433,15 @@ marker_krt7_vs_far %>% arrange(cluster, p_val_adj)
 package2::tile("segal_list2", data_hep)
 
 
+
+
 #zonation
 use_gene <- df_hep[unlist(zone_list)] %>% apply(MARGIN = 2, mean) %>% sort(decreasing = T) %>% head(60) %>% names()
 zone_list_fil <- zone_list %>% map(~.[.%in% use_gene])
 save_list(zone_list_fil)
 
-package2::tile("zone_list_fil", data_hep, order = F)
+id_ch("label4", data_hep)
+package2::signature_tile("zone_list_fil", data_hep)
 data_hep$label3 <- Idents(data_hep)
 data_hep$label4 <- data_hep@meta.data %>%
   mutate(label4 = if_else(disease == "CH", paste0(label3,"_CH"), as.character(label3))) %>%
@@ -379,7 +462,8 @@ signature_tile("zone_list_fil", object = data_hep)
 
 package2::tile("hormon_list")
 
-#GS
+
+# GS ----------------------------------------------------------------------
 add_sig_val_(data_hep, marker_list = "zone_list3", overwrite = T)
 data_hep$zone_ratio3 <- data_hep@meta.data %>% mutate(zone_ratio = zone1_1 -zone3_1) %>% pull(zone_ratio)
 
@@ -402,7 +486,47 @@ res_cor_gs <- res_cor_gs %>% mutate(color = if_else(gene %in% zone_list$zone3_, 
 res_cor_gs %>% head(40) %>% ggplot(data = .,aes(fct_reorder(gene,cor), cor, fill = c("#D48C8C"))) + geom_bar(stat = "identity", show.legend = F) + coord_flip()+
   theme(axis.text.y = element_text(colour = res_cor_gs$color))
 
-#HAL
+#do correlation alnalysis
+df<- get_df(data_hep)
+df$zone3 <- data_hep$zone3_
+res_zone3 <- do_cor(df, gene = "zone3")
+
+res_zone3_fil <- res_zone3 %>% filter(is.na(cor))
+res_zone3 <- res_zone3 %>% mutate(n = row_number(), color = case_when(gene %in% zone_list$zone1_~"red",
+                                                                      gene %in% zone_list$zone3_~"#00BFC4",
+                                                                      TRUE~"black"),
+                                  zone = if_else(cor<0, "zone1", "zone3"))
+res_zone3_fil <- res_zone3 %>% filter(!is.na(cor), !str_detect(gene, "^MT-|^MTRNR"))
+res_zone3_fil <- res_zone3_fil %>% filter(!(color == "black"&zone == "zone1"))
+
+n = 30
+ res_zone3_fil[c(1:n, (nrow(res_zone3_fil)-(n-1)):nrow(res_zone3_fil)),] %>%
+  ggplot(data = .,aes(fct_reorder(gene,cor), cor, fill = zone)) + geom_bar(stat = "identity", show.legend = F) + coord_flip()+
+  theme(axis.text.y = element_text(colour = res_zone3_fil$color[rev(c(1:n, (nrow(res_zone3_fil)-(n-1)):nrow(res_zone3_fil)))]),
+        panel.background = element_rect(fill = "white"),
+        panel.border =  element_rect(colour = "black", fill = NA)) + labs(x = "", y = "Correlation")+
+   scale_fill_manual(values = gg_color_hue(2))
+
+
+res_zone3 %>% ggplot(aes(gene, cor, fill = zone)) + geom_bar(stat = "identity") + theme(axis.text.x = element_blank())
+
+#barplot
+res_zone3 %>% dplyr::slice(head, tail) %>% ggplot(data = .,aes(fct_reorder(gene,cor), cor)) + geom_bar(fill = gg_color_hue(2)[2],stat = "identity", show.legend = F) + coord_flip()+
+  theme(axis.text.y = element_text(colour = res_zone3$color[seq(30,1,-1)]))
+
+gs_gene <- res_zone3 %>% filter(cor>0.25) %>% pull(gene)
+res_zone3_enrich <- gs_gene %>% convert_gene(.) %>% .$ENTREZID %>% geneano_enricher(gene_entrez = .)
+res_zone3_enrich %>% barplot(showCategory = 20)
+res_zone3_enrich@result %>% write_clip()
+use_df <- read_clip_tbl() %>% filter(mark ==1)
+res_zone3_enrich_fil <- res_zone3_enrich
+res_zone3_enrich_fil@result <- use_df
+sav(res_zone3_enrich)
+res_zone3_enrich_fil@result %>%
+  ggplot(aes(fct_reorder(Description, -p.adjust), Count)) +
+  geom_bar(stat = "identity", fill = gg_color_hue(2)[2]) + coord_flip() + theme(axis.text.y  = element_text(size = 15))
+
+# HAL ---------------------------------------------------------------------
 
 add_sig_val(object = data_hep, "zone_list_fil", overwrite = T)
 ump(c("zone1_", "zone3_"), object = data_hep)
@@ -427,6 +551,44 @@ res_cor_hal <- res_cor_hal %>% mutate(color = if_else(gene %in% zone_list$zone1_
 res_cor_hal %>% head(40) %>% ggplot(data = .,aes(fct_reorder(gene,cor), cor, fill = c("#D48C8C"))) + geom_bar(stat = "identity", show.legend = F) + coord_flip()+
   theme(axis.text.y = element_text(colour = res_cor_gs$color))
 
+res_zone1 <- res_zone1 %>% mutate(color = if_else(gene %in% zone_list$zone1_, "red", "black"))
+res_zone1 %>% head(30) %>% ggplot(data = .,aes(fct_reorder(gene,cor), cor)) + geom_bar(fill = gg_color_hue(2)[1],stat = "identity", show.legend = F) + coord_flip()+
+  theme(axis.text.y = element_text(colour = res_zone1$color[seq(30,1,-1)]))
+
+hal_gene <- res_zone1 %>% filter(cor>0.25) %>% pull(gene)
+res_zone1_enrich <- hal_gene %>% convert_gene(.) %>% .$ENTREZID %>% geneano_enricher(gene_entrez = .)
+res_zone1_enrich %>% barplot(showCategory = 20)
+res_zone1_enrich@result %>% write_clip()
+use_df <- read_clip_tbl() %>% filter(mark ==1)
+res_zone1_enrich_fil <- res_zone1_enrich
+res_zone1_enrich_fil@result <- use_df
+sav(res_zone1_enrich)
+res_zone1_enrich_fil@result %>%
+  ggplot(aes(fct_reorder(Description, -p.adjust), Count)) + geom_text(aes(label = Description), nudge_y = 3)+
+  geom_bar(stat = "identity", fill = gg_color_hue(2)[1]) + coord_flip() + theme(axis.text.y  = element_blank())
+
+df<- get_df(data_hep)
+df$zone1 <- data_hep$zone1_
+
+res_zone1 <- do_cor(df, gene = "zone1")
+res_zone1 %>% filter(is.na(cor))
+res_zone1 <- res_zone1 %>% mutate(n = row_number(), color = case_when(gene %in% zone_list$zone1_~"red",
+                                                                      gene %in% zone_list$zone3_~gg_color_hue(2)[2],
+                                                                      TRUE~"black"),
+                                  zone = if_else(cor>0, "zone1", "zone3"))
+res_zone1_fil <- res_zone1 %>% filter(!is.na(cor))
+res_zone1_fil <- res_zone1 %>% filter(!is.na(cor), !(zone =="zone3"&color== "black"))
+n = 30
+res_zone1_fil[c(1:n, (nrow(res_zone1_fil)-(n-1)):nrow(res_zone1_fil)),] %>%
+  ggplot(data = .,aes(fct_reorder(gene,cor), cor, fill = zone)) + geom_bar(stat = "identity", show.legend = F) + coord_flip()+
+  theme(axis.text.y = element_text(colour = res_zone1_fil$color[rev(c(1:n, (nrow(res_zone1_fil)-(n-1)):nrow(res_zone1_fil)))]),
+        panel.background = element_rect(fill = "white"),
+        panel.border = element_rect(colour = "black", fill = NA))+
+  labs(y= "Correlation", x = "")
+
+
+
+
 #cancer study
 data$label_cancer <- data[[]] %>% mutate(a = if_else(disease %in% c("HCC", "ICC"), "C", "N" )) %>% pull(a)
 id_ch("label_cancer")
@@ -435,6 +597,7 @@ marker_c_vs_n <- diff_test(data)
 setwd("~/single_cell/single_cell_project/data/GSE125449/GSE125449_set1/GSE125449_Set1_samples.txt")
 ma_id <- read_delim("GSE125449_Set1_samples.txt",delim =  "\t")
 data[[]] %>% filter(str_detect(batch, "ma_set1")) %>% select(id)
+
 ma_id$`Cell Barcode` <- paste0(ma_id$`Cell Barcode`, "_6")
 ma_id$Type %>% table
 
@@ -448,13 +611,21 @@ ma_id2$`Cell Barcode` <- paste0(ma_id2$`Cell Barcode`, "_7")
 malignant_id2 <-ma_id2 %>% filter(Type == "Malignant cell") %>% pull(`Cell Barcode`)
 malignant_id <- c(malignant_id1, malignant_id2)
 
-data$label_cancer <- data[[]] %>% mutate(a = if_else(id %in% malignant_id, "Malignant", "non_malignant")) %>% pull(a) %>%
+data2$label_cancer <- data2[[]] %>% mutate(a = if_else(id %in% malignant_id, "Malignant", "non_malignant")) %>% pull(a) %>%
   fct_relevel(c("Malignant", "non_malignant"))
 
-data$label_cancer2 <- data[[]] %>% mutate(a = paste0(label2, "_", label_cancer), b = fct_reorder(a, as.numeric(label_cancer)),
-                                          c = fct_reorder(b, as.numeric(label2))) %>% pull(c)
+# data$label_cancer2 <- data[[]] %>% mutate(a = paste0(label2, "_", label_cancer), b = fct_reorder(a, as.numeric(label_cancer)),
+#                                           c = fct_reorder(b, as.numeric(label2))) %>% pull(c)
 
+data2$label_cancer2 <- interaction(data2$label2, data2$label_cancer, sep = "_", lex.order = T)
+id_ch("label_cancer2", object = data2)
+up(data2) + scale_color_manual(values = c(gg_color_hue(), gg_color_hue(8)))
+rna(object = data2)
+vl("OPA1", object = data2)
 
+a <- FetchData(data2, vars = "OPA1") %>% cbind(data2[[]])
+as.character(unique(data$label2))[1] %>% map(., ~a %>% filter(str_detect(label_cancer2, pattern =.x))) #%>% t.test(data= .,OPA1~label_cancer2))
+a %>% filter(str_detect, "")
 id_ch("label_cancer2")
 up()
 signature_tile("segal_list")
@@ -508,3 +679,39 @@ mop(mono, color_cells_by = "label_cancer")
 
 id_ch("label_cancer2", sub_c)
 signature_tile("segal_list", object = sub_c)
+
+#hepatocyte analysis
+data_hep <- sub_fil(data, label2 == "Hep")
+data_hep$seurat_clusters <- data_hep$seurat_clusters %>% fct_drop()
+data_hep$seurat_clusters
+data_hep$label4 <- data_hep$seurat_clusters %>% plyr::mapvalues(from = c(1,3,4,5,11,14,16), to = paste0("Hep(", 1:7, ")"))
+
+data_hep$label5 <- paste0(data_hep$label4, "_", data_hep$disease)
+data_hep$label5 <- data_hep[[]] %>% mutate(label5 = fct_reorder(label5, as.numeric(disease))) %>% pull(label5)
+data_hep$label5 <- data_hep[[]] %>% mutate(label5 = fct_reorder(label5, as.numeric(label4))) %>% pull(label5)
+add_sig_val(data_hep, marker_list = "zone_list_fil", overwrite = T)
+
+
+cell_marker <- read_excel("~/single_cell/single_cell_project/cell_marker.xlsx",
+                          sheet = "marker_cho_enrich")
+cell_marker <- read_excel("~/single_cell/single_cell_project/cell_marker.xlsx",
+                          sheet = "krt7enrich_diff")
+
+n = 1
+map(levels(data$label2)[n], ~cell_marker %>% filter(mark==1, cluster == .x) %>% mutate_at(vars(p.adjust,Count),as.numeric) %>%
+  ggplot(aes(fct_rev(fct_relevel(Description, cell_marker$Description)), Count, fill = cluster)) +
+  geom_bar(fill = gg_color_hue(8)[n],stat = "identity", position = "dodge") + coord_flip() +
+  theme(axis.text.y  = element_text(size = 15), panel.background = element_rect(fill = "white"),
+        panel.border = element_rect(colour = "black", fill = NA)) + labs(title = .x, x =""))
+cell_marker %>% filter(mark==1) %>% mutate_at(vars(p.adjust,Count),as.numeric) %>%
+  ggplot(aes(fct_rev(fct_relevel(Description, cell_marker$Description)), Count, fill = -p.adjust)) +
+  geom_bar(stat = "identity", position = "dodge") + coord_flip() +
+  theme(axis.text.y  = element_text(size = 15), panel.background = element_rect(fill = "white"),
+        panel.border = element_rect(colour = "black", fill = NA)) + scale_fill_gradient(low = "blue", high = "red")
+
+marker_krt7$data[[1]]
+rna(cho_sub)
+vl(marker_list$senescent, object = cho_sub)
+#proliferrating cell percent
+data[[]] %>% dplyr::select(disease, label2) %>%  group_by(disease, label2) %>% summarise(n = n()) %>% group_by(disease) %>% filter(label2 %in% c("Hep", "Prolifer")) %>%
+  pivot_wider(id_cols = disease, names_from = label2, values_from = n) %>% mutate(n = Prolifer*100/(Hep + Prolifer))

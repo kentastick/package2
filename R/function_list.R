@@ -288,7 +288,8 @@ signature_plot <- function(marker = "gene_list", object = data, use_func = "mean
     df <- sig_val2(score_mt = df)
     df %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
-                           values = c(1.0,0.7,0.6,0.4,0.3,0))
+                           values = c(1.0,0.7,0.6,0.4,0.3,0))+
+      theme(axis.text.x = element_text(angle = 90))
 }
 # signature_tile <- function(marker = "gene_list", object = data, use_func = "mean", label_name = "seurat_clusters", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
 #     df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter, label_name = label_name)
@@ -305,7 +306,8 @@ signature_tile <- function(marker = "gene_list", object = data,title = "", use_f
     #scale_fill_gradient2(low = "blue",  mid = "white", high = "red", midpoint = 0.5)
      scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
                             values = c(1.0,0.7,0.6,0.4,0.3,0)) +
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.2)) + labs(title = title)
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.2), axis.text.y = element_text(size = 12)) +
+      labs(title = title)
 }
 signature_tile_within <- function(marker = "gene_list", object = data, use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
     df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
@@ -739,7 +741,9 @@ bar_origin <- function(bar_x, bar_y,object= data,angle = 60, position = "fill", 
   bar_y <- enquo(bar_y)
   p <- object@meta.data %>% dplyr::select(!!bar_x, !!bar_y) %>%
     ggplot(aes(!!bar_x, fill = !!bar_y)) + geom_bar(position = position) +
-    theme(axis.text.x = element_text(angle = angle, vjust = 0.5,size = rel(1.5)))
+    theme(axis.text.x = element_text(angle = angle, vjust = 0.5,size = rel(1.5))) + labs(fill = "Cell_type") +
+    scale_y_continuous(breaks = seq(0, 1, 0.25)) + labs(y = "ratio") +
+    theme(panel.background = element_rect(fill = "white"), panel.border = element_rect(fill = NA, colour = "black"))
   if(randam){
     n_color <- object@meta.data %>% dplyr::select(!!bar_y) %>% n_distinct()
    p <- p + scale_fill_manual(values = gg_color_hue(n = n_color, randam = T))
@@ -790,6 +794,7 @@ add_info <- function(data) {
     pull(n)
 
   data$id <- rownames(data@meta.data)
+  return(data)
 
 }
 

@@ -83,7 +83,7 @@ ggsave("plot10.jpg")
 saveRDS(data, "pbc_case1.rds")
 
 
-
+signature_plot(object= pbc_case1)
 
 
 
@@ -173,16 +173,30 @@ ggsave("plot10.jpg")
 saveRDS(data, "pbc_case2.rds")
 
 #cell labeling
+pbc_case2$id <- rownames(pbc_case2[[]])
+tile_plot("macrophage_list", object = pbc_case2)
+tile_plot("Bcell_list", object = pbc_case2)
+
 signature_plot(object = pbc_case2)
+tile_plot(gene = "Bcell_list",pbc_case2)
+
+pbc_case2$label <- pbc_case2$seurat_clusters2 %>% fct_collapse(Tcell = c("0","1"), DC = "2", EC = "3", Mesenchyme = "4", Cholangiocyte = "5",
+                                           KC = "6", Bcell ="7", plasma = "8", Hepatocyte = "9")
+id_ch("label", pbc_case2)
+up(pbc_case2)
+tile_plot(list(CXCR = marker_list$CXCR, CCR = marker_list$CCR), object = pbc_case2)
+use_id <- up(pbc_case2) %>% CellSelector()
+pbc_case2 <- SetIdent(pbc_case2, cells = use_id, value = 9)
+pbc_case2$seurat_clusters2 <- Idents(pbc_case2)
+id_ch("seurat_clusters2", pbc_case2)
 
 a <- function(group) {
   group <- rlang::enquo(group)
   #group <- rlang::syms(group)
   mtcars %>% group_by(!!group) %>% summarise_all(.funs = mean)
 }
-mtcars$mpg %>% summary
-mtcars %>% mutate(mpg = cut())
-a(group = "cyp")
+
+mtcars %>% mutate(mpg = cut(mpg, breaks = c(0,10,20,Inf), labels = c("s","m", "l")))
 
 
 # GSE125449 carcinoma----------------------------------------------------------------
