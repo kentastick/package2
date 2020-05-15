@@ -18,6 +18,18 @@ tile_plot("macrophage_list")
 save_list(macrophage_list)
 
 #marker list
+DC_list <- list(DC1_ = c("CLEC9A", "C1ORF54", "CADM1", "CAMK2D", "IDO1", "XCR1"),
+                DC2_ = c("CD1C", "FCER1A", "CLEC10A", "ADAM8", "CD1D", "FCGR2B"),
+                DC3_ = c("S100A9", "S100A8", "VCAN", "RNASE2", "CD1C", "FCER1A", "CLEC10A"),
+                DC4_= c("FCGR3A", "FTL", "SERPINA1", "LST1", "AIF1", "LILRB2", "TMEM176B", "LOC200772", "CLEC4F"),
+                DC5_= c("AXL", "PPP1R14A", "SIGLEC6", "CD22", "CD5", "SIGLEC1"),
+                DC6_ = c("GZMB", "IGJ", "AK128525", "SERPINF1", "ITM2C", "TCF4", "CLEC4C", "NRP1"),
+                Mono1_= c("CD14", "VCAN", "S100A8", "S100A9", "FCN1", "ITGAM"),
+                Mono2_ = c("LAIR2", "ASAH1", "APOBEC3A", "TSPAN14", "LIPA", "ITGAM"),
+                Mono3_= c("G0S2", "CXCR1", "CXCR2", "NAMPT", "NEAT1", "AL137655", "CSF3R", "CD14", "VCAN", "S100A8", "S100A9", "FCN1", "ITGAM"),
+                Mono4_= c("PRF1", "GNLY", "CTSW", "FGFBP2", "IL2RB", "GZMA", "CD14", "VCAN", "S100A8","S100A9", "FCN1", "ITGAM"))
+
+
 macrophage_list <- list(Mono = c("FCN1", "MNDA", "LYZ", "VCAM", "S100A8", "S100A12"),
                KC =c("CD14", "CD163", "MARCO", "VCAM1", "TIMD4", "CD5L", "C1QA", "FCGR3A", "APOE"),
                DC = c("CD1C", "CD1A", "CLEC9A", "CLEC10A", "CD274", "FCER1A", "HLA-DQA1", "HLA-DQB1"),

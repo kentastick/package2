@@ -6,8 +6,6 @@ library(package2)
 data <- readRDS("data/Seurat_object/Aizarani.rds")
 
 
-
-
 # pbc case 1 --------------------------------------------------------------
 setwd("C:/Users/ken/Documents/single_cell/single_cell_project/data/pbc_case1")
 

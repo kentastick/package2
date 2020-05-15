@@ -4,7 +4,33 @@ library(tidyverse)
 library(clipr)
 library(gghighlight)
 
+cho_marker <- c("HES1","TACSTD1", "TACSTD2", "MUC6", "PROM1", "CDH2", "CDH6",
+  "NCAM1", "BCAM", "STAT4", "MUC1", "S100P", "MUC2", "MUC4", "EMA",
+  "TFF2", "MUC5B", "MUC5AC","KRT7", "AQP1","FGFR2","CITED4","KRT19","ATP1B1" )
+cho_marker <- list(cho_marker = cho_marker)
+DoHeatmap(features = cho_marker, data_sub, slot = "data")
+fil_gene(cho_marker, object = data_sub)
 
+b <- data_sub@assays$RNA@data[rownames(data_sub@assays$RNA@data) %in% cho_marker , ] %>% as.matrix() %>% t()
+res <- kmeans(b, 4)
+
+res_MUC1 <- do_cor(df, gene = "MUC1")
+
+data_sub@assays$RNA@data[rownames(data_sub@assays$RNA@data) %in% use_gene , ] %>% as.matrix() %>% t() %>%
+  as.data.frame()  %>% mutate(id = paste0("cell_", row_number()), cluster = res$cluster) %>%
+  pivot_longer(cols = c(-id, -cluster), names_to = "gene", values_to = "value") ->a
+  a %>% ggplot(aes(id, fct_rev(fct_relevel(gene, cho_marker)), fill = value)) + geom_tile() +
+    scale_fill_gradientn(colours = c("#E32222", "#DB7725", "#F7F02A", "#39DB54", "#35B7E3"),
+                         values = c(1.0,0.7,0.6,0.4,0.3,0)) + labs(y ="", x = "") +
+    theme(axis.text.x = element_blank())
+
+
+
+
+dist(b) %>% hclust() %>% plot
+
+
+tile_
 bar_origin(disease, label2)
 
 data <- package2::sub_fil(data, !disease %in% c("HCC", "ICC"))
@@ -385,6 +411,7 @@ marker_ <- FindAllMarkers(data, logfc.threshold = log(2), min.pct = 0.25, only.p
 
 # VIM analysis ------------------------------------------------------------
 data_hep
+da
 data_cho <- sub_fil(data, !str_detect(label2, "Hep"))
 use_id <- data[[]] %>% filter(label2 == "HHyP(3)") %>% pull(id)
 data_hhyp3 <- subset(data, cells = use_id)
@@ -624,7 +651,7 @@ rna(object = data2)
 vl("OPA1", object = data2)
 
 a <- FetchData(data2, vars = "OPA1") %>% cbind(data2[[]])
-as.character(unique(data$label2))[1] %>% map(., ~a %>% filter(str_detect(label_cancer2, pattern =.x))) #%>% t.test(data= .,OPA1~label_cancer2))
+as.character(unique(data$label2))[1] %>% map(., ~a %>% filter(str_detect(label_cancer2, pattern =.x))) #%>% t.test(data= .,OPA1~label_cancer2)lo)
 a %>% filter(str_detect, "")
 id_ch("label_cancer2")
 up()
@@ -715,3 +742,7 @@ vl(marker_list$senescent, object = cho_sub)
 #proliferrating cell percent
 data[[]] %>% dplyr::select(disease, label2) %>%  group_by(disease, label2) %>% summarise(n = n()) %>% group_by(disease) %>% filter(label2 %in% c("Hep", "Prolifer")) %>%
   pivot_wider(id_cols = disease, names_from = label2, values_from = n) %>% mutate(n = Prolifer*100/(Hep + Prolifer))
+
+
+ump(c(c("MUC5B", "NCAM1"), hc)
+

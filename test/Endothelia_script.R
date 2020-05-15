@@ -8,7 +8,7 @@ id_ch("label")
 signature_tile("Endothelial_list2")
 tile_plot("Endothelial_list2")
 
-bar_origin(disease, label)
+bar_origin(disease, label,object = me)
 #endothelial list
 
 Endothelial_list2 <- list(
@@ -21,6 +21,10 @@ Endothelial_list2 <- list(
 save_list(Endothelial_list2)
 
 data$disease <- fct_relevel(data$disease, c("PBC_1", "PBC_2", paste0("NL_", 1:4), "FL", "CH", "HCC", "ICC"))
+
+data$label2 <- interaction(data$label, data$disease, sep = "_", lex.order = T)
+data$label2 <- interaction(data$label3, data$disease, sep = "_", lex.order = T)
+id_ch("label")
 
 #cell number
 data$disease %>% table ->a
@@ -35,7 +39,8 @@ data$label <- data$seurat_clusters %>% fct_collapse(., non_LSECs = c("0","6","7"
                                                     Arterial = c("4"),
                                                     Lympha = c("8")
 ) %>% fct_relevel("LSEC", "Central", "Arterial", "non_LSECs", "Lympha")
-
+data$label3 <- data$label %>% fct_collapse(non_LSECs = c("non_LSECs", "Central", "Arterial"))
+id_ch("label3")
 
 data$seurat_clusters <- data[[]] %>% mutate(seurat_clusters = fct_reorder(seurat_clusters, as.numeric(label))) %>% pull(seurat_clusters) %>%
 fct_drop()

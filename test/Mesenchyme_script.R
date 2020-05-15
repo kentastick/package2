@@ -23,7 +23,7 @@ mesenchyme_list <- list(Myofibroblast = c("TIMP1", "COL1A1", "COL1A2", "COL3A1",
                         Mesenchyme = c("ACTA2", "VIM", "CRYAB", "NGFR"))
 save_list(mesenchyme_list)
 
-tile_plot("mesenchyme_list")
+tile_plot("mesenchyme_list", object = me)
 signature_tile("mesenchyme_list")
 bar_origin(seurat_clusters, disease)
 

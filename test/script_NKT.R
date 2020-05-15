@@ -14,8 +14,11 @@ NKT_list2 <- list(Tcell = c("CD3D", "CD4", "CD8A", "CD8B", "TRAC", "TRBC2"),
                  Dysfunction = c("PDCD1", "LAG3", "TIGIT", "CTLA4"),
                  Regurational = c("FOXP3", "IL2RA", "TNFRSF4"))
 save_list(NKT_list2)
-
+id_ch("label4")
 signature_tile("NKT_list2")
+bar_origin(disease, label2)
+
+#data
 
 
 #labeling
@@ -39,6 +42,15 @@ data$label4 <- paste0(data$label2, "_", data$disease)
 data$label4 <- data@meta.data %>% mutate(label4 = fct_reorder(label4, as.numeric(disease))) %>% pull(label4)
 data$label4 <- data@meta.data %>% mutate(label4 = fct_reorder(label4, as.numeric(label2))) %>% pull(label4)
 
+
+c("TNFSF15", "POU2AF1",
+  "CD80", "IKZF3-ZPBP2-", "GSDMB-ORMDL3",
+  "IL7R", "NFKB1",
+  "STAT4", "TNFAIP2",
+  "CXCR5", "MAP3K7IP1",
+  "DENND1B")
+data$label5 <- interaction(data$label2, data$disease, sep = "_", lex.order = T)
+id_ch("label5")
 
 id_ch("label2")
 signature_tile("NKT_list2")
@@ -102,11 +114,14 @@ a <- a %>% mutate(pro_vs_anti_sig = map2(data, cell,~{signature_tile("inflamator
 a <- a %>% mutate(pro_vs_anti = map2(data, cell,~{tile_plot("inflamatory_list", object = .x,title = .y)->p;ggsave(plot = p, filename = paste0(.y, "_anti_pro.jpg"), path = "comparison_cell", width = 3.18, height = 3.09 )}))
 a <- a %>% mutate(pro_vs_anti = map2(data, cell,~{tile_plot("inflamatory_list", object = .x,title = .y)->p;ggsave(plot = p, filename = paste0(.y, "_anti_pro.jpg"), path = "comparison_cell", width = 3.18, height = 3.09 )}))
 a <- a %>% mutate(stim_vs_inhi = map2(data, cell,~{tile_plot("immunocheck_list", object = .x,title = .y)->p;ggsave(plot = p, filename = paste0(.y, "_stim_inhibi.jpg"), path = "comparison_cell", width = 4.23, height = 3.98 )}))
+a <- a %>% mutate(graph = map2(data,cell,~vl(c("IFNG","IL18","IL12B", "IL1B"), ncol =4, object = .x)))
+a <- a %>% mutate(data = map(data,~{a <-.x; DefaultAssay(a) <-"RNA";return(a)}))
 
 
 id_ch("label4")
 signature_tile("inflamatory_list")
 tile_plot(gene = marker_list$cytokine)
+
 
 immunocheck_list <- list(co_stimulatory = marker_list$co_stimulatory_tcell,co_inhibitory = marker_list$co_inhibitory_tcell)
 sav(a)
@@ -117,6 +132,7 @@ data@meta.data %>% select(label2, disease) %>% group_by(disease, label2) %>% sum
   group_by(disease) %>% mutate(all = sum(n), ratio = round(n/all*100, digits = 1)) %>%
   pivot_wider(id_cols = disease,names_from = label2, values_from = ratio) %>% write_clip()
 
+
 id_ch("label4")
 inflamatory_list <- list(pro = marker_list$pro_inflammatory, anti = marker_list$anti_inflammatory)
 
@@ -125,11 +141,17 @@ tile_plot(list(pro = marker_list$pro_inflammatory, anti = marker_list$anti_infla
 
 signature_tile("inflamatory_list",sub_fil(data, label2 == "Treg"))
 
-data[[]] %>% select(disease, label2) %>% filter(!label2 %in% c("cNK", "lrNK")) %>%
+data[[]] %>% dplyr::select(disease, label2) %>% filter(!label2 %in% c("cNK", "lrNK")) %>%
   group_by(disease, label2) %>% summarise(n = n()) %>% group_by(disease) %>%
-  mutate(sum = sum(n), prop = n/sum*100) %>% ggplot(aes(disease, prop, fill = label2)) + geom_bar(position = "dodge",stat = "identity") + theme(axis.text.x = element_text(angle = 60, vjust = 0.5))
+  mutate(sum = sum(n), prop = n/sum*100) %>%  filter(label2 %in%  c("Cytotoxic", "Treg")) %>% ggplot(aes(disease, prop, fill = label2)) +
+  geom_bar(position = "dodge",stat = "identity") + facet_wrap(~label2) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5),
+        panel.background = element_rect(fill = "white"),
+        panel.border = element_rect(colour = "black", fill = NA)) +
+  scale_fill_manual(values = gg_color_hue(8)[c(2,5)]) +
+  labs(y = "Percent (%)")
   pivot_wider(id_cols = c(disease), names_from = label2, values_from = prop) %>% write_clip()
   mutate(Treg_ratio = Treg/sum*100)
 
 
-
+res_enrich <- res_all %>% filter(cor>0.25) %>% pull(gene) %>%  convert_gene() %>% .$ENTREZID %>% geneano_enricher()
