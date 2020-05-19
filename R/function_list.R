@@ -4,6 +4,7 @@
 
 # data to list ------------------------------------------------------------
 
+#'@export
 
 df_to_list <- function(df) {
   df_list <- vector("list", nrow(df))
