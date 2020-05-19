@@ -4,6 +4,7 @@
 # data to list ------------------------------------------------------------
 
 
+
 df_to_list <- function(df) {
   df_list <- vector("list", nrow(df))
   df <- df %>% as.matrix()
