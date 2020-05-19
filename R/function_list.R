@@ -3,7 +3,6 @@
 
 
 # data to list ------------------------------------------------------------
-#' @export
 
 
 df_to_list <- function(df) {
@@ -21,7 +20,6 @@ df_to_list <- function(df) {
 
 
 # do_seurat ---------------------------------------------------------------
-#' @export
 
 
 do_seurat <- function(data) {
