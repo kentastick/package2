@@ -1,4 +1,4 @@
-#' @import Seurat tidyverse
+#' @import Seurat tidyverse ggplot2
 
 
 # data to list ------------------------------------------------------------
