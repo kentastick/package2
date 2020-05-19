@@ -2,3 +2,4 @@
 exportPattern("^[[:alpha:]]+")
 import(Seurat)
 import(tidyverse)
+import(ggplot2)
