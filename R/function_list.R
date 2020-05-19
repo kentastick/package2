@@ -610,7 +610,7 @@ remove_list_dup <- function(gene_list) {
 
 restart <- function(remotes, install_github) {
   remotes::install_github("kentastick/package2")
-  detach("package::package2", unload=TRUE)
+  detach("package:package2", unload=TRUE)
   library("package2", lib.loc="~/R/win-library/3.6")
 }
 
