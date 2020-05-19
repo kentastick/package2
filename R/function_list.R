@@ -4,7 +4,6 @@
 
 # data to list ------------------------------------------------------------
 
-#'@export
 
 df_to_list <- function(df) {
   df_list <- vector("list", nrow(df))
@@ -101,7 +100,6 @@ do_seurat <- function(data) {
 
 
 #  function --------------------------------------------------------
-#' @export
 
 
 #create present time as name
