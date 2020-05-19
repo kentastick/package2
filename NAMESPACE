@@ -1,2 +1,2 @@
 exportPattern("^[[:alpha:]]+")
-importFrom(Seurat, tidyverse)
+import(Seurat, tidyverse)
