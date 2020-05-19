@@ -1,9 +1,9 @@
-#' @import Seurat
+#' @import Seurat tidyverse
 
 
 
 # data to list ------------------------------------------------------------
-
+#' @export
 
 
 df_to_list <- function(df) {
@@ -21,6 +21,8 @@ df_to_list <- function(df) {
 
 
 # do_seurat ---------------------------------------------------------------
+#' @export
+
 
 do_seurat <- function(data) {
   if(!class(data) == "Seurat"){
@@ -100,6 +102,8 @@ do_seurat <- function(data) {
 
 
 #  function --------------------------------------------------------
+#' @export
+
 
 #create present time as name
 make_time <- function() {
