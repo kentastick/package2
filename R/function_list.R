@@ -97,6 +97,37 @@ do_seurat <- function(data) {
   return(object)
 }
 
+do_seurat2 <- function(data) {
+  if(!class(data) == "Seurat"){
+    object <- CreateSeuratObject(counts = data, project = "object", min.cells = 3, min.features = 200)
+  }else{
+    object <- data
+  }
+  object[["percent.mt"]] <- PercentageFeatureSet(object, pattern = "^MT-")
+
+  #object <- subset(object, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+  object <- NormalizeData(object, normalization.method = "LogNormalize", scale.factor = 10000)
+  object <- FindVariableFeatures(object, selection.method = "vst", nfeatures = 2000)
+
+  all.genes <- rownames(object)
+
+  #normalization data mean =1 variaty =0
+  object <- ScaleData(object, features = all.genes)
+  object <- RunPCA(object, features = VariableFeatures(object = object))
+
+  print(object[["pca"]], dims = 1:5, nfeatures = 5)
+
+  #jackstraw analysis
+  object <- JackStraw(object, num.replicate = 10)
+  object <- ScoreJackStraw(object, dims = 1:20)
+
+  object <- FindNeighbors(object, dims = 1:27)
+  object <- FindClusters(object, resolution = 0.8)
+  object <- RunUMAP(object, dims = 1:30)
+  object <- RunTSNE(object, dims = 1:30)
+  return(object)
+}
+
 
 
 #  function --------------------------------------------------------
@@ -287,7 +318,10 @@ signature_plot_ <- function(mat_value, use.color = c("#0099FF", "#FAF5F5", "#E32
 
 #calculate whithin each gene score normalized by gene across the cluster
 signature_plot <- function(marker = "gene_list", object = data, use_func = "mean", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
-    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
+  stopifnot(is.character(marker))
+  stopifnot(class(object) == "Seurat")
+
+  df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
     df <- sig_val2(score_mt = df)
     df %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
