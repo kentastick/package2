@@ -623,7 +623,8 @@ get_list_name <- function() {
   gene_list_path = c(#"~/single_cell/single_cell_project/gene_list/",
                      #"E:/single_cell_project/gene_list/",
                      "~/single_cell/package2/test/gene_list/",
-                     "E:/single_cell_project/package2/test/gene_list/")
+                     "E:/single_cell_project/package2/test/gene_list/",
+                     "./test/gene_list/")
   for (i in gene_list_path){
     res <- try(list.files(path = i))
     if(length(res) != 0) break
@@ -649,7 +650,6 @@ restart <- function(remotes, install_github) {
   detach("package:package2", unload=TRUE)
   library("package2", lib.loc="~/R/win-library/3.6")
 }
-
 
 
 
