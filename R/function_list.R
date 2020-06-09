@@ -600,7 +600,7 @@ save_list <- function(marker) {
                      )
   for (i in gene_list_path){
     saved_list <- try(saveRDS(marker, paste0(i, parse_name , ".rds")), silent = T)
-    if(class(get_list) != "try-error")break
+    if(saved_list) != "try-error") break
   }
 
 }
