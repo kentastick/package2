@@ -609,7 +609,9 @@ get_list <- function(marker, output = T) {
   gene_list_path = c(#"~/single_cell/single_cell_project/gene_list/",
                      #"E:/single_cell_project/gene_list/",
                      "~/single_cell/package2/test/gene_list/",
-                     "E:/single_cell_project/package2/test/gene_list/")
+                     "E:/single_cell_project/package2/test/gene_list/",
+                     "~/test/gene_list/"
+                     )
   for (i in gene_list_path){
     get_list <- try(readRDS(paste0(i, marker,".rds")), silent = T)
   if(class(get_list) != "try-error")break
