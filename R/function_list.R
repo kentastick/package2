@@ -599,8 +599,7 @@ save_list <- function(marker) {
                      "./test/gene_list/"
                      )
   for (i in gene_list_path){
-    saved_list <- try(saveRDS(marker, paste0(i, parse_name , ".rds")), silent = T)
-    if(saved_list != "try-error")break
+    try(saveRDS(marker, paste0(i, parse_name , ".rds")), silent = T)
   }
 
 }
