@@ -596,6 +596,7 @@ save_list <- function(marker) {
                      #"E:/single_cell_project/gene_list/",
                      "~/single_cell/package2/test/gene_list/",
                      "E:/single_cell_project/package2/test/gene_list/"
+                     "./test/gene_list/"
                      )
   for (i in gene_list_path){
     saved_list <- try(saveRDS(marker, paste0(i, parse_name , ".rds")), silent = T)
@@ -647,8 +648,8 @@ remove_list_dup <- function(gene_list) {
 
 restart <- function(remotes, install_github) {
   remotes::install_github("kentastick/package2")
-  detach("package:package2", unload=TRUE)
-  library("package2", lib.loc="~/R/win-library/3.6")
+  detach("package:package2", unload= TRUE)
+  library("package2", lib.loc= c("~/R/win-library/3.6", "../../Documents/R/win-library/3.5/"))
 }
 
 
