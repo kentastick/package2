@@ -595,11 +595,11 @@ save_list <- function(marker) {
   gene_list_path = c(#"~/single_cell/single_cell_project/gene_list/",
                      #"E:/single_cell_project/gene_list/",
                      "~/single_cell/package2/test/gene_list/",
-                     "E:/single_cell_project/package2/test/gene_list/"
+                     "E:/single_cell_project/package2/test/gene_list/",
+                     "./test/gene_list/"
                      )
   for (i in gene_list_path){
-    saved_list <- try(saveRDS(marker, paste0(i, parse_name , ".rds")), silent = T)
-    if(class(get_list) != "try-error")break
+    try(saveRDS(marker, paste0(i, parse_name , ".rds")), silent = T)
   }
 
 }
@@ -609,7 +609,9 @@ get_list <- function(marker, output = T) {
   gene_list_path = c(#"~/single_cell/single_cell_project/gene_list/",
                      #"E:/single_cell_project/gene_list/",
                      "~/single_cell/package2/test/gene_list/",
-                     "E:/single_cell_project/package2/test/gene_list/")
+                     "E:/single_cell_project/package2/test/gene_list/",
+                     "./test/gene_list/"
+                     )
   for (i in gene_list_path){
     get_list <- try(readRDS(paste0(i, marker,".rds")), silent = T)
   if(class(get_list) != "try-error")break
@@ -621,7 +623,8 @@ get_list_name <- function() {
   gene_list_path = c(#"~/single_cell/single_cell_project/gene_list/",
                      #"E:/single_cell_project/gene_list/",
                      "~/single_cell/package2/test/gene_list/",
-                     "E:/single_cell_project/package2/test/gene_list/")
+                     "E:/single_cell_project/package2/test/gene_list/",
+                     "./test/gene_list/")
   for (i in gene_list_path){
     res <- try(list.files(path = i))
     if(length(res) != 0) break
@@ -644,10 +647,9 @@ remove_list_dup <- function(gene_list) {
 
 restart <- function(remotes, install_github) {
   remotes::install_github("kentastick/package2")
-  detach("package:package2", unload=TRUE)
-  library("package2", lib.loc="~/R/win-library/3.6")
+  detach("package:package2", unload= TRUE)
+  library("package2", lib.loc= c("~/R/win-library/3.6", "../../Documents/R/win-library/3.5/"))
 }
-
 
 
 
