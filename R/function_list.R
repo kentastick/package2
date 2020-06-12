@@ -719,6 +719,20 @@ diff_test_batch_2 <- function (x, object = data, min.pct = 0.1, min.diff.pct = 0
   return(marker)
 }
 
+#diff_test
+
+
+fil_marker <- function(marker_list, n = 30, filter = F, remove_gene = "^MT|^RPS|^RPL|^RBP|^LOC|^C1of|^RNA") {
+
+  marker_list <- marker_list %>% group_by(cluster) %>% top_n(n, avg_logFC)
+
+  if(filter){
+    marker_list <- marker_list %>% filter(!str_detect(gene, remove_gene))
+  }
+  return(marker_list)
+}
+
+
 
 #add entrez id list
 diff_marker_convert <- function(marker_df) {
@@ -1223,7 +1237,7 @@ get_diff_test_marker <- function(diff_test_res, ...) {
 
 # tile_plot ---------------------------------------------------------------
 
-tile_plot <- function(gene, object = data, title = "", order = F, plot_wrap = F, fil_val= NULL, color_label = T, ...) {
+tile_plot <- function(gene = "gene_list", object = data, title = "", order = F, plot_wrap = F, fil_val= NULL, color_label = T, ...) {
   if(str_detect(gene, "_list")){
     gene <- get_list(gene)
   }
