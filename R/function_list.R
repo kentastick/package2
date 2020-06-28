@@ -596,7 +596,8 @@ save_list <- function(marker) {
                      #"E:/single_cell_project/gene_list/",
                      "~/single_cell/package2/test/gene_list/",
                      "E:/single_cell_project/package2/test/gene_list/",
-                     "./test/gene_list/"
+                     "./test/gene_list/",
+                     "~/package2/test/gene_list/"
                      )
   for (i in gene_list_path){
     try(saveRDS(marker, paste0(i, parse_name , ".rds")), silent = T)
@@ -610,7 +611,8 @@ get_list <- function(marker, output = T) {
                      #"E:/single_cell_project/gene_list/",
                      "~/single_cell/package2/test/gene_list/",
                      "E:/single_cell_project/package2/test/gene_list/",
-                     "./test/gene_list/"
+                     "./test/gene_list/",
+                     "~/package2/test/gene_list/"
                      )
   for (i in gene_list_path){
     get_list <- try(readRDS(paste0(i, marker,".rds")), silent = T)
@@ -624,7 +626,9 @@ get_list_name <- function() {
                      #"E:/single_cell_project/gene_list/",
                      "~/single_cell/package2/test/gene_list/",
                      "E:/single_cell_project/package2/test/gene_list/",
-                     "./test/gene_list/")
+                     "./test/gene_list/",
+                     "~/package2/test/gene_list/"
+                     )
   for (i in gene_list_path){
     res <- try(list.files(path = i))
     if(length(res) != 0) break
