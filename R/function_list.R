@@ -828,6 +828,8 @@ add_info <- function(data) {
     mutate(reference = case_when(str_detect(batch, "fetal|adult")~"Segal",
                                  str_detect(batch, "HCC|ICC")~"Ma",
                                  TRUE~as.character(reference))) %>% pull(reference)
+data$cancer
+
 
   data$disease <- data@meta.data %>% mutate(disease = fct_collapse(batch,NL_1 = "macpoland",
                                                                    NL_2 = "aizarani",
@@ -844,9 +846,16 @@ add_info <- function(data) {
 
   data$condition  <- data@meta.data %>%
     mutate(condition = fct_collapse(disease, Healthy = c("NL_1", "NL2", "NL_3"),
-                                    CH = "CH", PBC = c("PBC_1", "PBC_2"),
+                                    CH = "CH", PBC = c("PBC_1", "PBC_2")
                                     )) %>%
     pull(condition)
+
+  data$disease2 <- data[[]] %>% mutate(disease = case_when(cancer=="non_tumor"~"NL_5",
+                                                           cancer %in% c("suppliment", "tumor")~"ICC_2",
+                                                           TRUE~as.character(disease))) %>% pull(disease)
+
+
+
   data$data_origin <- data@meta.data %>% mutate(n = fct_collapse(batch, macparland = c("macpoland"), segal = c("adult", "fetal"))) %>%
     pull(n)
 
