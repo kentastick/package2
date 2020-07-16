@@ -1771,6 +1771,19 @@ my_add <- function(a,b) {
 }
 
 
+# clustering --------------------------------------------------------------
+
+
+make_av_df <- function(data, gene_list) {
+  DefaultAssay(data) <- "RNA"
+  mt <- FetchData(data, unique(unlist(gene_list)), slot = "data")
+  mt$cluster <- data$integrated_snn_res.3
+  df <- mt %>% group_by(cluster) %>% summarise_all(mean)
+  df <- column_to_rownames(df, var = "cluster")
+}
+
+
+
 
 # filter low quolity cells ------------------------------------------------
 
