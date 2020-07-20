@@ -852,7 +852,8 @@ data$cancer
 
   data$disease2 <- data[[]] %>% mutate(disease = case_when(cancer=="non_tumor"~"NL_5",
                                                            cancer %in% c("suppliment", "tumor")~"ICC_2",
-                                                           TRUE~as.character(disease))) %>% pull(disease)
+                                                           TRUE~as.character(disease))) %>% pull(disease) %>%
+    fct_relevel(c("PBC_1", "PBC_2", paste0("NL_", 1:5), "CH", "ICC_1", "ICC_2", "HCC", "FL", "BL" ))
 
 
 
