@@ -198,7 +198,7 @@ search_gene <- function() {
   data@assays$RNA@data@Dimnames[[1]] %>% View
 }
 
-pick_gene <- function(pattern) {
+pick_gene <- function(pattern, data = data) {
   data@assays$RNA@data@Dimnames[[1]] %>% str_subset(., pattern =pattern)
 }
 
@@ -1059,10 +1059,9 @@ geneano_groupgo <- function(gene, ont_type = c("MF","BP", "CC")) {
 
 #enrich go
 geneano_enrichgo <- function(gene) {
-        res <-  try(enrichGO(gene          = gene,
-                  universe      = names(geneList),
+        res <-  try(clusterProfiler::enrichGO(gene          = gene,
                   OrgDb         = org.Hs.eg.db,
-                  ont           = "CC",
+                  ont           = "BP",
                   pAdjustMethod = "BH",
                   pvalueCutoff  = 0.01,
                   qvalueCutoff  = 0.05,
@@ -1499,9 +1498,9 @@ FetchData(data_sub, vars = unlist(segal_list)) %>% rownames_to_column("id") %>%
 
 # monocle3 ----------------------------------------------------------------
 
-make_monocle3 <- function(seurat_object) {
-  DefaultAssay(seurat_object) <- "integrated"
-  umi_matrix <- seurat_object@assays$integrated@data
+make_monocle3 <- function(seurat_object, assay_type = "Integrated") {
+  DefaultAssay(seurat_object) <- assay_type
+  umi_matrix <- seurat_object@assays$RNA@data
   sample_info <- data.frame(seurat_object@meta.data,
                             stringsAsFactors = F)
 

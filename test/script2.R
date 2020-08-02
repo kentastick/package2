@@ -623,6 +623,7 @@ marker_c_vs_n <- diff_test(data)
 
 setwd("~/single_cell/single_cell_project/data/GSE125449/GSE125449_set1/GSE125449_Set1_samples.txt")
 ma_id <- read_delim("GSE125449_Set1_samples.txt",delim =  "\t")
+
 data[[]] %>% filter(str_detect(batch, "ma_set1")) %>% select(id)
 
 ma_id$`Cell Barcode` <- paste0(ma_id$`Cell Barcode`, "_6")
