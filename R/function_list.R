@@ -596,7 +596,8 @@ save_list <- function(marker) {
                      #"E:/single_cell_project/gene_list/",
                      "~/single_cell/package2/test/gene_list/",
                      "E:/single_cell_project/package2/test/gene_list/",
-                     "./test/gene_list/"
+                     "./test/gene_list/",
+                     "~/package2/test/gene_list/"
                      )
   for (i in gene_list_path){
     try(saveRDS(marker, paste0(i, parse_name , ".rds")), silent = T)
@@ -610,7 +611,8 @@ get_list <- function(marker, output = T) {
                      #"E:/single_cell_project/gene_list/",
                      "~/single_cell/package2/test/gene_list/",
                      "E:/single_cell_project/package2/test/gene_list/",
-                     "./test/gene_list/"
+                     "./test/gene_list/",
+                     "~/package2/test/gene_list/"
                      )
   for (i in gene_list_path){
     get_list <- try(readRDS(paste0(i, marker,".rds")), silent = T)
@@ -624,7 +626,9 @@ get_list_name <- function() {
                      #"E:/single_cell_project/gene_list/",
                      "~/single_cell/package2/test/gene_list/",
                      "E:/single_cell_project/package2/test/gene_list/",
-                     "./test/gene_list/")
+                     "./test/gene_list/",
+                     "~/package2/test/gene_list/"
+                     )
   for (i in gene_list_path){
     res <- try(list.files(path = i))
     if(length(res) != 0) break
@@ -824,6 +828,8 @@ add_info <- function(data) {
     mutate(reference = case_when(str_detect(batch, "fetal|adult")~"Segal",
                                  str_detect(batch, "HCC|ICC")~"Ma",
                                  TRUE~as.character(reference))) %>% pull(reference)
+data$cancer
+
 
   data$disease <- data@meta.data %>% mutate(disease = fct_collapse(batch,NL_1 = "macpoland",
                                                                    NL_2 = "aizarani",
@@ -840,9 +846,17 @@ add_info <- function(data) {
 
   data$condition  <- data@meta.data %>%
     mutate(condition = fct_collapse(disease, Healthy = c("NL_1", "NL2", "NL_3"),
-                                    CH = "CH", PBC = c("PBC_1", "PBC_2"),
+                                    CH = "CH", PBC = c("PBC_1", "PBC_2")
                                     )) %>%
     pull(condition)
+
+  data$disease2 <- data[[]] %>% mutate(disease = case_when(cancer=="non_tumor"~"NL_5",
+                                                           cancer %in% c("suppliment", "tumor")~"ICC_2",
+                                                           TRUE~as.character(disease))) %>% pull(disease) %>%
+    fct_relevel(c("PBC_1", "PBC_2", paste0("NL_", 1:5), "CH", "ICC_1", "ICC_2", "HCC", "FL", "BL" ))
+
+
+
   data$data_origin <- data@meta.data %>% mutate(n = fct_collapse(batch, macparland = c("macpoland"), segal = c("adult", "fetal"))) %>%
     pull(n)
 
@@ -1755,6 +1769,19 @@ my_add <- function(a,b) {
   }
   return(a)
 }
+
+
+# clustering --------------------------------------------------------------
+
+
+make_av_df <- function(data, gene_list) {
+  DefaultAssay(data) <- "RNA"
+  mt <- FetchData(data, unique(unlist(gene_list)), slot = "data")
+  mt$cluster <- data$integrated_snn_res.3
+  df <- mt %>% group_by(cluster) %>% summarise_all(mean)
+  df <- column_to_rownames(df, var = "cluster")
+}
+
 
 
 
