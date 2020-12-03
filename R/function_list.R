@@ -174,10 +174,10 @@ vl <- function(features, object = data,...) {
 
 # scraping function -------------------------------------------------------
 
-#page <- rvest::read_html("https://www.genecards.org/Search/Keyword?queryString=Chromogranin")
-#page %>% rvest::html_nodes("a")
-
-
+# page <- xml2::read_html("https://www.ncbi.nlm.nih.gov/pmc/articles/PMC28094/")
+# page %>% rvest::html_nodes("#T2 .tag_hotlink")->a
+# a %>% str_extract("(?<=nuccore/).{1,8}") %>% str_remove_all("\\W")
+#
 
 # ggsave wrapper ----------------------------------------------------------
 
@@ -1109,6 +1109,7 @@ do_geneano <- function(marker_df, res_name = "res_enricher",gene_type = gene_ent
 }
 
 
+
  add_enrich_anotation <- function(marker_list) {
    marker_list <- marker_list %>% do_geneano(use_func = geneano_enricher, res_name = "res_enricher", gene_type = gene_entrez)
    marker_list <- marker_list %>% mutate(bar_plot = map2(res_enricher, cluster, ~bar(.x, .y)))
@@ -1774,6 +1775,7 @@ my_add <- function(a,b) {
 # clustering --------------------------------------------------------------
 
 
+
 make_av_df <- function(data, gene_list) {
   DefaultAssay(data) <- "RNA"
   mt <- FetchData(data, unique(unlist(gene_list)), slot = "data")
@@ -1783,6 +1785,85 @@ make_av_df <- function(data, gene_list) {
 }
 
 
+make_av_df2 <- function (data, gene_list, use_label)
+{
+  mt <- FetchData(object = data, unique(unlist(gene_list)), slot = "data")
+  mt$cluster <- data[[]] %>% pull(use_label)
+  df <- mt %>% group_by(cluster) %>% summarise_all(mean)
+  df <- column_to_rownames(df, var = "cluster")
+}
+
+clu_data <- function(data = data, gene_list = gene_list, use_label = "seurat_clusters", k = 6 ) {
+  df <- make_av_df2(data = data, gene_list = gene_list, use_label = use_label)
+  res <- dist(df)
+  res <- hclust(res)
+  clust <- cutree(res, k = k)
+  tb <- data.frame(clu = as.character(clust), use_label = names(clust))
+  res <- data[[use_label]] %>% left_join(tb, by = use_label) %>% pull(clu) %>% fct_relevel(as.character(1:k))
+  return(res)
+}
+
+
+
+
+# separate by disease infomation ------------------------------------------
+
+sep_dis <- function(use_label) {
+  interaction(pull(data[[]], use_label), data$disease2, lex.order = T)
+}
+
+
+
+
+
+# david function ----------------------------------------------------------
+
+symbol_entrez_conv <- function(object) {
+  temp <- object$SYMBOL
+  names(temp) <- object$ENTREZID
+  return(temp)
+}
+
+
+do_david <- function(use_gene, listName = "gene") {
+
+  david<- RDAVIDWebService::DAVIDWebService(email="ktaka@stu.kanazawa-u.ac.jp", url="https://david.ncifcrf.gov/webservice/services/DAVIDWebService.DAVIDWebServiceHttpSoap12Endpoint/")
+
+  gene_df <- convert_gene(x = use_gene)
+  gene_tbl <- symbol_entrez_conv(object = gene_df)
+
+
+  result<-RDAVIDWebService::addList(david, gene_df$ENTREZID,
+                  idType="ENTREZ_GENE_ID",
+                  listName= listName, listType="Gene")
+
+  termCluster<- RDAVIDWebService::getClusterReport(david, type="Term")
+
+  termCluster <- conv_david(termCluster, use_gene_tbl = gene_tbl)
+
+  return(termCluster)
+}
+
+
+
+conv_david <- function(david_object, use_gene_tbl) {
+  cluster_list <-map(david_object@cluster, ~.[[2]] %>% asS3)
+  score_list <-map(david_object@cluster, ~.[[1]])
+  length_res <- length(david_object@cluster)
+
+  use_list <- list(x = cluster_list, y = 1:length_res,z = score_list)
+
+  use_func <- function(x,y,z) mutate(.data = asS3(x), cluster = paste0("cluster_", y), score = z)
+  result <- pmap(use_list, .f = use_func)
+
+  result <- purrr::reduce(result, rbind)
+
+  result <- result %>% mutate(Genes = str_split(Genes, pattern = ", "))
+
+  result <- result %>% mutate(Genes = map(Genes, ~as.character(use_gene_tbl[.]) %>% paste0(collapse = ", ")) %>% unlist())
+
+  return(result)
+}
 
 
 # filter low quolity cells ------------------------------------------------

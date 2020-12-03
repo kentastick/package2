@@ -199,15 +199,17 @@ mtcars %>% mutate(mpg = cut(mpg, breaks = c(0,10,20,Inf), labels = c("s","m", "l
 
 # GSE125449 carcinoma----------------------------------------------------------------
 #trace(Read10X, edit=TRUE)
+library(GEOquery)
 
 #setwd("C:/Users/ken/Documents/single_cell/single_cell_project/data/GSE125449/GSE125449_set1/")
 setwd("C:/Users/ken/Documents/single_cell/single_cell_project/data/GSE125449/GSE125449_set2/")
 data <- Read10X(data.dir = ".")
 
 #add sample meta_data to cell_id from GSE125448_set1_samples.txt
-#label <- read.delim("GSE125449_Set1_samples.txt/GSE125449_Set1_samples.txt")
-label <- read.delim("GSE125449_Set2_samples.txt/GSE125449_Set2_samples.txt")
+#label1 <- read.delim("GSE125449_Set1_samples.txt/GSE125449_Set1_samples.txt")
+label2 <- read.delim("GSE125449_Set2_samples.txt/GSE125449_Set2_samples.txt")
 label %>% colnames
+
 sample_name <- label$Sample %>% unique() %>% as.character()
 
 #set1
@@ -222,8 +224,16 @@ label$Sample <- label$Sample %>% plyr::mapvalues(from = sample_name,
 identical(colnames(ma_set2), as.character(label$Cell.Barcode))
 
 
-#ma_set1$id <- label$Sample
-ma_set2$id <- label$Sample
+#ma_set1$sample <- label$Sample
+ma_set2$sample <- label$Sample
+
+
+#ma_set1$id <- rownames(ma_set1[[]])
+ma_set2$id <- rownames(ma_set2[[]])
+
+#ma_set1$label_ma <- label$Type
+ma_set2$label_ma <- label$Type
+
 
 #sav(ma_set1)
 sav(ma_set2)
@@ -298,7 +308,31 @@ ggsave("plot10.jpg")
 
 saveRDS(data, "normal.rds")
 
+
+
+
+#ma_set1 and ma_set2 combined
+
+com <- merge(ma_set1, ma_set2)
+com <- do_seurat2(com)
+sav(com)
+
+malignant <- sub_fil(data, label_ma %in% c("HPC-like", "Malignant cell"))
+malignant <- sub_fil(sub, seurat_clusters %in% names(label_few))
+
+tile_plot()
+
+
+mg_list <- marker %>% group_by(cluster) %>% filter(p_val_adj<0.01) %>% dplyr::select(cluster, gene) %>% nest(.key = "gene") %>%
+  mutate(gene = map(gene, ~pull(.x, gene))) %>% deframe()
+
+res <- map2(mg_list, paste0("list", 1:2), ~do_david(.x, listName = .y))
+
+
+
+
 # GSE124395 from Aizarani --------------------------------------------------------------
+
 setwd("C:/Users/ken/Documents/single_cell/single_cell_project/data/GSE124395")
 data <- readRDS("GSE124395_Normalhumanliverdata.RData")
 
@@ -313,7 +347,7 @@ plot2 <- FeatureScatter(object, feature1 = "nCount_RNA", feature2 = "nFeature_RN
 CombinePlots(plots = list(plot1, plot2))
 ggsave("plot2.jpg", device = "jpeg")
 
-#object <- subset(object, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+#object <- subset(object, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5p)
 object <- NormalizeData(object, normalization.method = "LogNormalize", scale.factor = 10000)
 object <- FindVariableFeatures(object, selection.method = "vst", nfeatures = 2000)
 
@@ -827,6 +861,8 @@ ggsave("plot10.jpg")
 
 
 saveRDS(data, "segal.rds")
+
+
 
 
 # mouse atlas -------------------------------------------------------------
