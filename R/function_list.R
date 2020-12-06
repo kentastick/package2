@@ -1775,15 +1775,95 @@ my_add <- function(a,b) {
 # clustering --------------------------------------------------------------
 
 
+<<<<<<< HEAD
 
 make_av_df <- function(data, gene_list) {
+=======
+make_av_df <- function(data, gene_list, use_label ="integrated_snn_res.3" ) {
+>>>>>>> 53a39bbde5d6f4356f12437d1f10dc017d32bb14
   DefaultAssay(data) <- "RNA"
   mt <- FetchData(data, unique(unlist(gene_list)), slot = "data")
-  mt$cluster <- data$integrated_snn_res.3
+  mt$cluster <- data[[]] %>% dplyr::pull(use_label)
   df <- mt %>% group_by(cluster) %>% summarise_all(mean)
   df <- column_to_rownames(df, var = "cluster")
 }
 
+# david function ----------------------------------------------------------
+
+symbol_entrez_conv <- function(object) {
+  temp <- object$SYMBOL
+  names(temp) <- object$ENTREZID
+  return(temp)
+}
+
+
+do_david <- function(use_gene, listName = "gene") {
+
+  david<- RDAVIDWebService::DAVIDWebService(email="ktaka@stu.kanazawa-u.ac.jp", url="https://david.ncifcrf.gov/webservice/services/DAVIDWebService.DAVIDWebServiceHttpSoap12Endpoint/")
+
+  gene_df <- convert_gene(x = use_gene)
+  gene_tbl <- symbol_entrez_conv(object = gene_df)
+
+
+  result<-RDAVIDWebService::addList(david, gene_df$ENTREZID,
+                                    idType="ENTREZ_GENE_ID",
+                                    listName= listName, listType="Gene")
+
+  termCluster<- RDAVIDWebService::getClusterReport(david, type="Term")
+
+  termCluster <- conv_david(termCluster, use_gene_tbl = gene_tbl)
+
+  return(termCluster)
+}
+
+
+
+conv_david <- function(david_object, use_gene_tbl) {
+  cluster_list <-map(david_object@cluster, ~.[[2]] %>% asS3)
+  score_list <-map(david_object@cluster, ~.[[1]])
+  length_res <- length(david_object@cluster)
+
+  use_list <- list(x = cluster_list, y = 1:length_res,z = score_list)
+
+  use_func <- function(x,y,z) mutate(.data = asS3(x), cluster = paste0("cluster_", y), score = z)
+  result <- pmap(use_list, .f = use_func)
+
+  result <- purrr::reduce(result, rbind)
+
+  result <- result %>% mutate(Genes = str_split(Genes, pattern = ", "))
+
+  result <- result %>% mutate(Genes = map(Genes, ~as.character(use_gene_tbl[.]) %>% paste0(collapse = ", ")) %>% unlist())
+
+  return(result)
+}
+
+
+# filter low quolity cells ------------------------------------------------
+
+#sig_val %>% sig_val2  %>% group_by(cluster) %>% mutate(rank = row_number(-mean)) %>% arrange(cluster) %>% filter(rank == 1)
+
+
+#output cell type table
+
+
+
+
+# labeling cell by score --------------------------------------------------
+
+
+aut_clust <- function(object = object, marker) {
+  Idents(object) <- "integrated_snn_res.1"
+  use_df <- sig_val(object = object, marker = marker) %>% sig_val2()
+
+  sig_df <- use_df %>% group_by(cluster) %>% top_n(1, mean) %>% dplyr::arrange(cluster) %>% dplyr::select(signature, cluster)
+
+  object[[]] %>%
+    left_join(sig_df, by = c("integrated_snn_res.1" = "cluster")) %>%
+    pull(signature) -> label
+  return(label)
+  # object_name <- as.character(substitute(object))
+  # assign(x = object_name, value = object, envir = .GlobalEnv)
+}
 
 make_av_df2 <- function (data, gene_list, use_label)
 {
