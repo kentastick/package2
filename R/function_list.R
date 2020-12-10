@@ -127,19 +127,23 @@ pick_gene <- function(pattern, data = data) {
   data@assays$RNA@data@Dimnames[[1]] %>% str_subset(., pattern =pattern)
 }
 
-# return absolute path ----------------------------------------------------
 
-#' search gene expressed in seurat_data
-#' @export
 
-abpath <- function(path = clipr::read_clip()) {
-  normalizePath(path) %>% stringr::str_replace_all("\\\\", "/") %>% clipr::write_clip()
+# signature plot ---------------------------------------------------------------------
+
+#make df of each cluster's signature score: each_value/max_value, fraction_rate: expressed_cell(>0)/total_cells
+
+
+
+
+gm_mean1 = function(a){prod(a)^(1/length(a))}
+
+gm_mean2 = function(x, na.rm=TRUE){
+  exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
 }
 
 
-# signature value calcuration ---------------------------------------------
-
-#calculate mean expression of each marker list
+#' calculate
 sig_val <- function(object = data, marker = "gene_list", use_func = "mean", add_id_cluster = T,filter = F) {
   gene_list <- get_list(marker)
   mt <- object@meta.data
@@ -199,20 +203,7 @@ sig_val_ <- function(object = data, marker = "gene_list", use_func = "mean", add
   return(mt)
 }
 
-# geometric mean ----------------------------------------------------------
 
-gm_mean1 = function(a){prod(a)^(1/length(a))}
-gm_mean1(1:10)
-
-
-gm_mean2 = function(x, na.rm=TRUE){
-  exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
-}
-
-
-# signature plot ---------------------------------------------------------------------
-
-#make df of each cluster's signature score: each_value/max_value, fraction_rate: expressed_cell(>0)/total_cells
 
 sig_val2 <- function(score_mt) {
   score_mt %>% gather(-cluster, -cell_id, key = "signature", value = "score") %>%
@@ -236,14 +227,6 @@ sig_val3 <- function(score_mt) {
 
 
 
-#internal function in make_subset
-signature_plot_ <- function(mat_value, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
-  mat_value %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
-    scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
-                           values = c(1.0,0.7,0.6,0.4,0.3,0))
-}
-
-
 #calculate whithin each gene score normalized by gene across the cluster
 signature_plot <- function(marker = "gene_list", object = data, use_func = "mean", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
   stopifnot(is.character(marker))
@@ -256,13 +239,7 @@ signature_plot <- function(marker = "gene_list", object = data, use_func = "mean
                            values = c(1.0,0.7,0.6,0.4,0.3,0))+
       theme(axis.text.x = element_text(angle = 90))
 }
-# signature_tile <- function(marker = "gene_list", object = data, use_func = "mean", label_name = "seurat_clusters", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
-#     df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter, label_name = label_name)
-#     df <- sig_val2(score_mt = df)
-#     df %>% ggplot(aes(cluster, signature, fill = score)) + geom_tile(color = "white") +
-#     scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
-#                            values = c(1.0,0.7,0.6,0.4,0.3,0))
-# }
+
 
 signature_tile <- function(marker = "gene_list", object = data,title = "", use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
     df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
@@ -274,26 +251,7 @@ signature_tile <- function(marker = "gene_list", object = data,title = "", use_f
       theme(axis.text.x = element_text(angle = 90, vjust = 0.2), axis.text.y = element_text(size = 12)) +
       labs(title = title)
 }
-signature_tile_within <- function(marker = "gene_list", object = data, use_func = "mean",filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
-    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
-    df <- sig_val3(score_mt = df)
-    df %>% ggplot(aes(cluster, signature, fill = score)) + geom_tile(color = "black") +
-    #scale_fill_gradient2(low = "blue",  mid = "white", high = "red", midpoint = 0.5)
-     scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
-                            values = c(1.0,0.7,0.6,0.4,0.3,0)) +
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.2))
-}
 
-
-#calculate whithin each cluster score normalized by cluster value
-signature_plot_within <- function(marker = "gene_list", object = data, use_func = "mean", filter = F, use.color = c("#0099FF", "#FAF5F5", "#E32020")) {
-    df <- sig_val(marker = marker, use_func = use_func, object = object, filter =filter)
-    df <- sig_val3(score_mt = df)
-    df %>% ggplot(aes(cluster, signature, colour =score, size = fraction_of_cells)) + geom_point() +
-    scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
-                           values = c(1.0,0.7,0.6,0.4,0.3,0))+
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.2))
-}
 
 
 # pick_up_specific cell type ----------------------------------------------
@@ -488,12 +446,6 @@ load_list <- function(data_list) {
 # save function -----------------------------------------------------------
 
 
-sa_data <- function(x) {
-  parse_arg <- substitute(x)
-  saveRDS(object = data, file = paste0(deparse(parse_arg), ".rds"))
-}
-
-
 sav <- function(x) {
   parse_arg <- substitute(x)
   saveRDS(object = x, file = paste0(deparse(parse_arg), ".rds"))
@@ -501,22 +453,6 @@ sav <- function(x) {
 
 
 # marker_list functions  -----------------------------------------------------------
-
-
-get_liver_marker <- function(n = 20, output =T) {
-  gene_list_path = c(#"~/single_cell/single_cell_project/gene_list/",
-    #"E:/single_cell_project/gene_list/",
-    "~/single_cell/package2/test/gene_list/",
-    "E:/single_cell_project/package2/test/gene_list/"
-  )
-  for (i in gene_list_path){
-    liver_marker_list <- try(readRDS(file = paste0(i, "liver_marker_list.rds")), silent = T)
-    if(class(liver_marker_list) != "try-error")break
-  }
-  liver_marker_list <- map(liver_marker_list, ~head(., n))
-  if(output)assign(x = paste0("liver_marker_list_",n), value  = liver_marker_list, envir =globalenv())
-}
-
 
 save_list <- function(marker) {
   parse_name <- deparse(substitute(marker))
@@ -565,40 +501,10 @@ get_list_name <- function() {
 }
 
 
-#remove duplicated gene in list
-
-remove_list_dup <- function(gene_list) {
-  gene_list <- gene_list %>% unlist() #%>% split(., ngene_listmes(.))
-  gene_list <- gene_list[!duplicated(gene_list)]
-  names(gene_list) <- names(gene_list) %>% str_remove("\\d{1,2}$")
-  gene_list %>% split(., names(.)) %>% map(as.vector)
-}
-
-
-# version up package2 -----------------------------------------------------
-
-restart <- function(remotes, install_github) {
-  remotes::install_github("kentastick/package2")
-  detach("package:package2", unload= TRUE)
-  library("package2", lib.loc= c("~/R/win-library/3.6", "../../Documents/R/win-library/3.5/"))
-}
 
 
 
 # differential gene expression analysis within same sample ----------------
-
-#diff_test
-diff_test_vs <- function(ident.1, ident.2, object = data) {
-  df <- FindMarkers(ident.1 = ident.1, ident.2 = ident.2, object = object)
-  df <- df %>% rownames_to_column(var = "gene") %>% mutate(cluster = if_else(avg_logFC>0, ident.1, ident.2))
-  return(df)
-}
-
-
-#find marker wrapper function
-diff_test <- function(object = data, ...) {
-  FindAllMarkers(object = object, min.pct = 0.25, only.pos = T, ...)
-}
 
 
 #do findmarker per each selected condition
@@ -668,54 +574,6 @@ fil_marker <- function(marker_list, n = 30, filter = F, remove_gene = "^MT|^RPS|
 
 
 
-#add entrez id list
-diff_marker_convert <- function(marker_df) {
-  parse_name <- deparse(substitute(marker_df))
-  marker_df %>% group_by(cluster) %>% nest() %>%
-    mutate(gene_symbol = map(data, ~filter(., p_val_adj<0.05) %>% pull(gene))) %>%
-    mutate(gene_entrez_symbol = map(gene_symbol, ~convert_gene(.))) %>%
-    mutate(gene_entrez = map(gene_entrez_symbol, ~pull(., ENTREZID))) %>%
-    mutate(gene_list_entrez = map2(gene_entrez_symbol, data, ~make_gene_list(.x, .y) )) %>%
-    mutate(gene_list_symbol = map2(data, gene_symbol, ~make_gene_list_2(.x, .y))) -> marker_df
-  saveRDS(marker_df, paste0(parse_name, "_list.rds"))
-  return(marker_df)
-}
-
-#sub lutins of diff_marker_convert
-
-make_gene_list <- function(arg1, arg2) {
-  df <-  arg1 %>% left_join(arg2,by = c("SYMBOL" = "gene") )
-  val <- df$avg_logFC
-  entrez_name <- df$ENTREZID
-  names(val) <- entrez_name
-  val <- sort(val, decreasing = T)
-  return(val)
-}
-
-make_gene_list_2 <- function(arg1, arg2) {
-  val <-  arg1 %>% filter(gene %in% arg2) %>% pull(avg_logFC)
-  names(val) <- arg2
-  val <- sort(val, decreasing = T)
-  return(val)
-}
-
-#convert symbol to entrezid
-convert_gene <- function(x) {
-  library(org.Hs.eg.db)
-  res <- try(clusterProfiler::bitr(x, fromType="SYMBOL", toType=c("ENTREZID"), OrgDb="org.Hs.eg.db"))
-
-  return(res)
-}
-
-#
-# marker_list_map <- function(df) {
-#   df %>% mutate(gene_symbol = map(data, ~filter(., p_val_adj <  0.05) %>%
-#                                     pull(gene))) %>%
-#     mutate(gene_entrez_symbol = map(gene_symbol,  ~convert_gene(.))) %>%
-#     mutate(gene_entrez = map(gene_entrez_symbol, ~try(pull(., ENTREZID)))) %>%
-#     mutate(gene_list_entrez = map2(gene_entrez_symbol,data, ~try(make_gene_list(.x, .y)))) %>%
-#     mutate(gene_list_symbol = map2(data, gene_symbol, ~try(make_gene_list_2(.x, .y))))
-# }
 
 
 
@@ -793,32 +651,6 @@ data$cancer
 
 }
 
-
-#add summarised marker_list average expression value
-#
-# add_sig_val <- function(object = data, marker_list, use_func = "mean", overwrite = T) {
-#
-#   #object <- eval(as.name(object_name))
-#   object_name <- as.character(substitute(object))
-#
-#   df_list <- vector("list", length(marker_list))
-#   for(i in seq_along(marker_list)){
-#     df_list[[i]] <- sig_val(object = object, marker = marker_list[i], use_func = use_func) %>%
-#       add_m(add = switch(use_func, "mean" = "", "gm_mean" = "_gm"))
-#   }
-#
-#
-#   df_com <- df_list %>% purrr::reduce(cbind)
-#
-#   df_com <- df_com %>% keep(is.numeric)
-#
-#   object <- add_meta(df = df_com, object = object)
-#
-#   if(overwrite){
-#     assign(x = object_name, value = object, envir = .GlobalEnv)
-#   }else return(object)
-#
-# }
 
 add_sig_val <- function(object = data, marker_list, use_func = "mean", label_name = "label", overwrite = T, add_signature_label = T){
 
@@ -916,13 +748,6 @@ add_sig_val_ <- function(object = data, marker_list, use_func = "mean", label_na
 }
 
 
-del_m <- function(object) {
-
-  object@meta.data[str_subset(colnames(object@meta.data), "_m|_gm")] <-NULL
-
-  return(object)
-}
-
 
 #add strong/weak value of one gene by specific value
 add_meta_binval <- function(gene, object = data) {
@@ -939,19 +764,6 @@ add_meta_binval <- function(gene, object = data) {
 }
 
 
-#add meta data of data.frame to seurat object
-add_meta <- function(df, object = data) {
-  object@meta.data <- object@meta.data %>% rownames_to_column(var = "temp") %>%
-    bind_cols(df) %>% column_to_rownames(var = "temp")
-  return(object)
-}
-
-add_m <- function(df_list, add = "_m") {
-  colnames(df_list) <- paste0(colnames(df_list), add)
-  return(df_list)
-}
-
-
 
 
 # subset filter---------------------------------------------------------
@@ -965,6 +777,34 @@ sub_fil <- function(object = data, ...) {
 
 
 # gene annotation analysis ------------------------------------------------
+
+convert_gene <- function(x) {
+  library(org.Hs.eg.db)
+  res <- try(clusterProfiler::bitr(x, fromType="SYMBOL", toType=c("ENTREZID"), OrgDb="org.Hs.eg.db"))
+
+  return(res)
+}
+
+convert_gene_to_ENTREZ <- function(x) {
+  library(org.Hs.eg.db)
+  res <-
+    try(clusterProfiler::bitr(x,
+                              fromType = "SYMBOL",
+                              toType = c("ENTREZID"),
+                              OrgDb = "org.Hs.eg.db"))
+  return(res)
+}
+convert_gene_to_SYMBOL <- function(x) {
+  library(org.Hs.eg.db)
+  res <-
+    try(clusterProfiler::bitr(x,
+                              fromType = "ENTREZID",
+                              toType = c("SYMBOL"),
+                              OrgDb = "org.Hs.eg.db"))
+  return(res)
+}
+
+
 
 
 convertMouseGene <- function(x){
@@ -1020,6 +860,52 @@ do_enrich_go <- function(use_gene, ont = "BP") {
 }
 
 
+do_david <- function(use_gene, listName = "gene") {
+
+  david<- RDAVIDWebService::DAVIDWebService(email="ktaka@stu.kanazawa-u.ac.jp", url="https://david.ncifcrf.gov/webservice/services/DAVIDWebService.DAVIDWebServiceHttpSoap12Endpoint/")
+
+  gene_df <- convert_gene(x = use_gene)
+  gene_tbl <- symbol_entrez_conv(object = gene_df)
+
+
+  result<-RDAVIDWebService::addList(david, gene_df$ENTREZID,
+                                    idType="ENTREZ_GENE_ID",
+                                    listName= listName, listType="Gene")
+
+  termCluster<- RDAVIDWebService::getClusterReport(david, type="Term")
+
+  termCluster <- conv_david(termCluster, use_gene_tbl = gene_tbl)
+
+  return(termCluster)
+}
+
+symbol_entrez_conv <- function(object) {
+  temp <- object$SYMBOL
+  names(temp) <- object$ENTREZID
+  return(temp)
+}
+
+
+conv_david <- function(david_object, use_gene_tbl) {
+  cluster_list <-map(david_object@cluster, ~.[[2]] %>% asS3)
+  score_list <-map(david_object@cluster, ~.[[1]])
+  length_res <- length(david_object@cluster)
+
+  use_list <- list(x = cluster_list, y = 1:length_res,z = score_list)
+
+  use_func <- function(x,y,z) mutate(.data = asS3(x), cluster = paste0("cluster_", y), score = z)
+  result <- pmap(use_list, .f = use_func)
+
+  result <- purrr::reduce(result, rbind)
+
+  result <- result %>% mutate(Genes = str_split(Genes, pattern = ", "))
+
+  result <- result %>% mutate(Genes = map(Genes, ~as.character(use_gene_tbl[.]) %>% paste0(collapse = ", ")) %>% unlist())
+
+  return(result)
+}
+
+
 
 do_pathway <- function(marker_df) {
   #marker_df %<>% group_by(cluster) %>% nest
@@ -1066,6 +952,24 @@ make_venn <- function(df = dirr_test_res) {
 
 # tile_plot ---------------------------------------------------------------
 
+fil_gene <- function(gene, object) {
+  if(class(gene) =="list"){
+    gene <- gene %>% map(., ~.[. %in% rownames(object)])
+    gene <- gene[map(gene, length)>0]
+  }else{
+    gene <- gene[gene %in% rownames(object)]
+  }
+  return(gene)
+}
+
+
+remove_list_dup <- function(gene_list) {
+  gene_list <- gene_list %>% unlist() #%>% split(., ngene_listmes(.))
+  gene_list <- gene_list[!duplicated(gene_list)]
+  names(gene_list) <- names(gene_list) %>% str_remove("\\d{1,2}$")
+  gene_list %>% split(., names(.)) %>% map(as.vector)
+}
+
 
 
 
@@ -1084,9 +988,10 @@ tile_plot <- function(gene = "gene_list", object = data, title = "", order = F, 
   } else{
     feature <- fil_gene(gene, object = object)
   }
-  use_id <- pick_id(object = object, ...)
+  use_id <- colnames(object)
   use_df <- object@assays$RNA@data[feature, use_id]
-  #cluster_label <- object@meta.data[,cluster_label]
+
+
   cluster_label <- object@active.ident
   if(length(feature) ==1){
     use_df <- use_df %>% as.tibble()
@@ -1129,19 +1034,14 @@ tile_plot <- function(gene = "gene_list", object = data, title = "", order = F, 
       n <- length(gene)
       label_color <- gg_color_hue(n)
       label_color_use <- label_color[as.numeric(plyr::mapvalues(label_df$label, from = unique(label_df$label), to = 1:n))]
-      #label_color_use <- label_color[as.numeric(as.factor(label_df$label))]
+
       use_df <- use_df %>% mutate(label_color = label_color[as.numeric(as.factor(label))])
       p <- use_df %>% ggplot(aes(cluster, gene, size = pct, fill = label, colour = score)) + geom_point() +
         scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
                                values = c(1.0,0.7,0.6,0.4,0.3,0))
       p <- p + theme(axis.text.y = element_text(colour = label_color_use),
                      axis.text.x = element_text(angle = 90, vjust = 0.5)
-                     # panel.background = element_rect(fill = "#F5F5F5",
-                     #                                 colour = "#F5F5F5",
-                     #                                 size = 0.5, linetype = "solid"),
-                     # panel.grid.major = element_line(size = 0.5, linetype = 'solid',
-                     #                                 colour = "black"),
-                     #panel.grid.minor = element_line(size = 0.25, linetype = 'solid',colour = "black")
+
                      ) +
         scale_fill_manual(values = label_color) + labs(title = title)
       return(p)
@@ -1154,70 +1054,6 @@ tile_plot <- function(gene = "gene_list", object = data, title = "", order = F, 
 
 
 
-tile_plot2 <- function(gene, object = data, title = "", order = F, plot_wrap = F, fil_val= NULL, color_label = T, ...) {
-  if(str_detect(gene, "_list")){
-    gene <- get_list(gene)
-  }
-  DefaultAssay(object = object) <- "RNA"
-
-  if(class(gene) == "list" ){
-    gene <- remove_list_dup(gene)
-    gene <-   fil_gene(gene, object = object)
-    feature <- unlist(gene)
-    label_df <- enframe(gene, name = "label",value = "gene") %>% unnest
-
-    for_tile_legend_df <<- label_df
-  } else{
-    feature <- fil_gene(gene, object = object)
-  }
-  use_id <- pick_id(object = object, ...)
-
-  #make df of cell gene matrix
-  use_df <- object@assays$RNA@data[feature, use_id]
-  cluster_label <- object@active.ident
-
-  if(length(feature) ==1){
-    use_df <- use_df %>% as.tibble()
-  }else{
-    use_df <- t(as.matrix(use_df)) %>% as.tibble()
-  }
-  use_df<- use_df %>% add_column(cluster = cluster_label)
-
-  #calculate expression score and percent expression
-   use_df <- use_df %>% tidyr::pivot_longer(-cluster, names_to = "gene", values_to = "logCPM") %>%
-    group_by(cluster, gene) %>% summarise(avg_logCPM = mean(logCPM), pct = sum(logCPM>0)/n()) %>%
-    group_by(gene) %>% mutate(score = avg_logCPM/max(avg_logCPM), m = mean(avg_logCPM))
-
-
-  if(class(gene) == "list" ){
-    use_df <- use_df %>% left_join(label_df, by = c("gene"))
-    use_df <- use_df %>% ungroup() %>%  mutate(gene = fct_relevel(gene, feature))
-
-  }
-  if(order){
-    use_df <- use_df %>% mutate( cluster = fct_reorder(cluster, avg_logCPM))
-  }
-
-  p <- use_df %>% ggplot(aes(cluster, gene, size = pct, colour = score)) + geom_point() +
-    scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
-                           values = c(1.0,0.7,0.6,0.4,0.3,0))
-
-  if(class(gene) == "list"){
-    if(color_label){
-      n <- length(gene)
-      label_color <- color_randam(gg_color_hue(n), n)
-      label_color_use <- label_color[as.numeric(plyr::mapvalues(label_df$label, from = unique(label_df$label), to = 1:n))]
-      #label_color_use <- label_color[as.numeric(as.factor(label_df$label))]
-      use_df <- use_df %>% mutate(label_color = label_color[as.numeric(as.factor(label))])
-      p <- use_df %>% ggplot(aes(gene, cluster, size = pct, fill = label, colour = score)) + geom_point() +
-        scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
-                               values = c(1.0,0.7,0.6,0.4,0.3,0))
-      p <- p + theme(axis.text.x = element_text(colour = label_color_use, angle = 90, vjust = 0.5)) + scale_fill_manual(values = label_color) + labs(title = title)
-      return(p)
-    }
-  }else return(p +theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + labs(title = title))
-
-}
 
 
 
@@ -1228,104 +1064,7 @@ tile_legend <- function(df = for_tile_legend_df) {
     geom_bar(stat = "identity")+ scale_fill_manual(values = gg_color_hue(n)) + guides(fill = guide_legend(reverse = T))
 }
 
-tile2 <- function(gene, object = data, order =TRUE, ...) {
-  if(class(gene) == "list" ){
-    label_df <- enframe(gene, name = "label",value = "gene") %>% unnest
-    feature <- unlist(gene)
-  } else{
-    feature <- gene
-  }
 
-  use_id <- pick_id(object = object, ...)
-  use_df <-FetchData(object = object, feature, cells = use_id)
-  cluster_label <- object@meta.data$seurat_clusters
-  if(length(feature) ==1){
-    use_df <- use_df %>% as.tibble()
-  }else{
-    use_df <- t(as.matrix(use_df)) %>% as.tibble()
-  }
-   use_df<- use_df %>% add_column(cluster = cluster_label)
-  use_df <- use_df %>% tidyr::pivot_longer(-cluster, names_to = "gene", values_to = "logCPM") %>%
-    group_by(cluster, gene) %>% summarise(avg_logCPM = mean(logCPM), pct = sum(logCPM>0)/n()) %>%
-    group_by(gene) %>% mutate(score = avg_logCPM/max(avg_logCPM))
-  if(class(gene) == "list" ){
-    use_df <- use_df %>% left_join(label_df, by = c("gene"))
-  }
-  if(order){
-    use_df <- use_df %>% mutate( cluster = fct_reorder(cluster, avg_logCPM))
-  }
-
-  p <- use_df %>% ggplot(aes(cluster, fct_relevel(gene,feature), size = pct, colour = score)) + geom_point() +
-    scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
-                           values = c(1.0,0.7,0.6,0.4,0.3,0))
-
-  if(class(gene) == "list" ){
-   p + facet_grid(~label)
-  }else return(p)
-
-
-
-  }
-#
-# tile <- function(feature, object = data,...) {
-#   use_id <- pick_id(object = object, ...)
-#   use_df <- object@assays$RNA@data[feature, use_id]
-#   cluster_label <- object@meta.data$seurat_clusters
-#   if(length(feature) ==1){
-#     use_df <- use_df %>% as.tibble()
-#   }else{
-#     use_df <- t(as.matrix(use_df)) %>% as.tibble()
-#   }
-#    use_df<- use_df %>% add_column(cluster = cluster_label)
-#   use_df <- use_df %>% pivot_longer(-cluster, names_to = "gene", values_to = "logCPM") %>%
-#     group_by(cluster, gene) %>% summarise(avg_logCPM = mean(logCPM))
-#   a <<- use_df
-#   use_df %>% ggplot(aes(cluster, gene,  fill = avg_logCPM)) + geom_tilet() +
-#     scale_colour_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
-#                            values = c(1.0,0.7,0.6,0.4,0.3,0))
-# }
-
-
-
-tile3 <- function(gene, object = data, order =TRUE, ...) {
-  if(class(gene) == "list" ){
-    label_df <- enframe(gene, name = "label",value = "gene") %>% unnest
-    feature <- unlist(gene)
-  } else{
-    feature <- gene
-  }
-  use_df <-FetchData(object = object, feature, cells = use_id)
-
-  use_df <- rownames_to_column("id") %>%
-    mutate(id = row_number()) %>%
-    pivot_longer(cols = -id, names_to = "gene", values_to = "log10CPM")
-
-  if(class(gene) == "list" ){
-    use_df <- use_df %>% left_join(label_df, by = c("gene"))
-  }
-  if(order){
-    use_df <- use_df %>% mutate( cluster = fct_reorder(id, log10CPM))
-  }
-
-  p <- use_df %>% ggplot(aes(id, gene, fill = log10CPM)) + geom_tile() +
-    scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
-                         values = c(1.0,0.7,0.6,0.4,0.3,0))
-  if(color_label){
-    n <- length(gene)
-    label_color <- gg_color_hue(n)
-    label_color_use <- label_color[as.numeric(plyr::mapvalues(label_df$label, from = unique(label_df$label), to = 1:n))]
-    #label_color_use <- label_color[as.numeric(as.factor(label_df$label))]
-    use_df <- use_df %>% mutate(label_color = label_color[as.numeric(as.factor(label))])
-   p + theme(axis.text.y = element_text(colour = label_color_use)) + scale_fill_manual(values = label_color)
-}
-
-FetchData(data_sub, vars = unlist(segal_list)) %>% rownames_to_column("id") %>%
-  mutate(id = row_number()) %>%
-  pivot_longer(cols = -id, names_to = "gene", values_to = "log10CPM") %>%
-  ggplot(aes(id, gene, fill = log10CPM)) + geom_tile() +
-  scale_fill_gradientn(colours = c("red","yellow","white","lightblue","darkblue"),
-                       values = c(1.0,0.7,0.6,0.4,0.3,0))
-}
 
 # monocle3 ----------------------------------------------------------------
 
@@ -1364,37 +1103,6 @@ make_monocle3 <- function(seurat_object, assay_type = "Integrated") {
    monocle3::top_markers(cds = cds, group_cells_by= group_cells_by, reference_cells= reference_cells, cores=8, reduction_method = "UMAP", ...)
  }
 
- get_earliest_principal_node <- function(cds, time_bin="130-170"){
-   cell_ids <- which(colData(cds)[, "embryo.time.bin"] == time_bin)
-
-   closest_vertex <- cds@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
-   closest_vertex <- as.matrix(closest_vertex[colnames(cds), ])
-   root_pr_nodes <-
-     igraph::V(principal_graph(cds)[["UMAP"]])$name[as.numeric(names(which.max(table(closest_vertex[cell_ids,]))))]
-
-   root_pr_nodes
- }
-
-
-
-# Data2 <- monocle3::order_cells(Data1, reduction_method = "UMAP")
-# monocle3::plot_cells(Data2, color_cells_by = "pseudotime" )
-
-
-
-
-# filter_gene -------------------------------------------------------------
-
-
-fil_gene <- function(gene, object) {
-  if(class(gene) =="list"){
-    gene <- gene %>% map(., ~.[. %in% rownames(object)])
-    gene <- gene[map(gene, length)>0]
-  }else{
-    gene <- gene[gene %in% rownames(object)]
-  }
-  return(gene)
-}
 
 
 # cor_analysis ------------------------------------------------------------
@@ -1434,18 +1142,6 @@ do_cor2 <- function(expr_df, gene, group_label = "subset", method = "pearson") {
   # return(all_res_df)
 }
 
-do_cor_batch <- function(expr_df, gene, group_label = "subset", method = "pearson") {
-  nu <- str_which(colnames(expr_df), paste0("^", gene, "$"))
-  all_res <- cor(x = expr_d[gene], y = expr_df[-nu], method = method)
-  all_res_df <- tibble(gene = colnames(all_res), cor = as.numeric(all_res[1,])) %>% arrange(-cor)
-  all_res_df$batch <- group_label
-  all_res_df %>% head(50) %>%
-    ggplot(aes(fct_reorder(gene,cor), cor, fill = gene)) + geom_bar(stat= "identity") + coord_flip() + guides(fill = F)
-  ggsave(filename = paste0(group_label, "_barplot.jpg"), device = "jpeg")
-  return(all_res_df)
-}
-
-
 
 do_cor_test <- function(expr_df) {
   outer(expr_df[, c(1)], expr_df[, c(2,4)], function(X, Y){
@@ -1476,48 +1172,6 @@ color_randam <- function(color_vec, n) {
 
 
 
-# assay type change -------------------------------------------------------
-
-
-rna <- function(object = data) {
-  use_name <- as.character(substitute(object))
-  DefaultAssay(object = object) <- "RNA"
-  #global_value(object = object)
-  assign(x = use_name, value = object,envir = .GlobalEnv)
-}
-
-integ <- function(object = data) {
-  use_name <- as.character(substitute(object))
-  DefaultAssay(object = object) <- "integrated"
-  #global_value(object = object)
-
-  assign(x = use_name, value = object,envir = .GlobalEnv)
-}
-integ <- function() {
-  DefaultAssay(object = data) <- "integrated"
-  data <<- data
-}
-
-
-b <- function() {
-  a <- 2
-  global_value(a)
-}
-
-
-# change gloval value -----------------------------------------------------
-
-global_value <- function(object) {
-  use_name <- as.character(substitute(object))
-  assign(x = use_name, value = object,envir = .GlobalEnv)
-}
-
-
-# write_count_table -------------------------------------------------------
-
-wrt_c_tab <- function(object = data) {
-  object$disease %>% table %>% as.data.frame() %>% t() %>% write_clip
-}
 
 
 # batch_test --------------------------------------------------------------
@@ -1577,90 +1231,7 @@ batch_cor_heatmap <- function(av_df_batch, method = "pearson") {
 }
 
 
-my_add <- function(a,b) {
-  while(TRUE){
-    b = b-1
-    a = a+1
-
-    if(b==0)break
-  }
-  return(a)
-}
-
-
 # clustering --------------------------------------------------------------
-
-
-
-make_av_df <- function(data, gene_list, use_label ="integrated_snn_res.3" ) {
-  DefaultAssay(data) <- "RNA"
-  mt <- FetchData(data, unique(unlist(gene_list)), slot = "data")
-  mt$cluster <- data[[]] %>% dplyr::pull(use_label)
-  df <- mt %>% group_by(cluster) %>% summarise_all(mean)
-  df <- column_to_rownames(df, var = "cluster")
-}
-
-# david function ----------------------------------------------------------
-
-symbol_entrez_conv <- function(object) {
-  temp <- object$SYMBOL
-  names(temp) <- object$ENTREZID
-  return(temp)
-}
-
-
-do_david <- function(use_gene, listName = "gene") {
-
-  david<- RDAVIDWebService::DAVIDWebService(email="ktaka@stu.kanazawa-u.ac.jp", url="https://david.ncifcrf.gov/webservice/services/DAVIDWebService.DAVIDWebServiceHttpSoap12Endpoint/")
-
-  gene_df <- convert_gene(x = use_gene)
-  gene_tbl <- symbol_entrez_conv(object = gene_df)
-
-
-  result<-RDAVIDWebService::addList(david, gene_df$ENTREZID,
-                                    idType="ENTREZ_GENE_ID",
-                                    listName= listName, listType="Gene")
-
-  termCluster<- RDAVIDWebService::getClusterReport(david, type="Term")
-
-  termCluster <- conv_david(termCluster, use_gene_tbl = gene_tbl)
-
-  return(termCluster)
-}
-
-
-
-conv_david <- function(david_object, use_gene_tbl) {
-  cluster_list <-map(david_object@cluster, ~.[[2]] %>% asS3)
-  score_list <-map(david_object@cluster, ~.[[1]])
-  length_res <- length(david_object@cluster)
-
-  use_list <- list(x = cluster_list, y = 1:length_res,z = score_list)
-
-  use_func <- function(x,y,z) mutate(.data = asS3(x), cluster = paste0("cluster_", y), score = z)
-  result <- pmap(use_list, .f = use_func)
-
-  result <- purrr::reduce(result, rbind)
-
-  result <- result %>% mutate(Genes = str_split(Genes, pattern = ", "))
-
-  result <- result %>% mutate(Genes = map(Genes, ~as.character(use_gene_tbl[.]) %>% paste0(collapse = ", ")) %>% unlist())
-
-  return(result)
-}
-
-
-# filter low quolity cells ------------------------------------------------
-
-#sig_val %>% sig_val2  %>% group_by(cluster) %>% mutate(rank = row_number(-mean)) %>% arrange(cluster) %>% filter(rank == 1)
-
-
-#output cell type table
-
-
-
-
-# labeling cell by score --------------------------------------------------
 
 
 aut_clust <- function(object = object, marker) {
@@ -1679,6 +1250,7 @@ aut_clust <- function(object = object, marker) {
 
 make_av_df2 <- function (data, gene_list, use_label)
 {
+
   mt <- FetchData(object = data, unique(unlist(gene_list)), slot = "data")
   mt$cluster <- data[[]] %>% pull(use_label)
   df <- mt %>% group_by(cluster) %>% summarise_all(mean)
@@ -1698,70 +1270,6 @@ clu_data <- function(data = data, gene_list = gene_list, use_label = "seurat_clu
 
 
 
-# separate by disease infomation ------------------------------------------
-
-sep_dis <- function(use_label) {
-  interaction(pull(data[[]], use_label), data$disease2, lex.order = T)
-}
 
 
-
-
-
-# david function ----------------------------------------------------------
-
-symbol_entrez_conv <- function(object) {
-  temp <- object$SYMBOL
-  names(temp) <- object$ENTREZID
-  return(temp)
-}
-
-
-do_david <- function(use_gene, listName = "gene") {
-
-  david<- RDAVIDWebService::DAVIDWebService(email="ktaka@stu.kanazawa-u.ac.jp", url="https://david.ncifcrf.gov/webservice/services/DAVIDWebService.DAVIDWebServiceHttpSoap12Endpoint/")
-
-  gene_df <- convert_gene(x = use_gene)
-  gene_tbl <- symbol_entrez_conv(object = gene_df)
-
-
-  result<-RDAVIDWebService::addList(david, gene_df$ENTREZID,
-                  idType="ENTREZ_GENE_ID",
-                  listName= listName, listType="Gene")
-
-  termCluster<- RDAVIDWebService::getClusterReport(david, type="Term")
-
-  termCluster <- conv_david(termCluster, use_gene_tbl = gene_tbl)
-
-  return(termCluster)
-}
-
-
-
-conv_david <- function(david_object, use_gene_tbl) {
-  cluster_list <-map(david_object@cluster, ~.[[2]] %>% asS3)
-  score_list <-map(david_object@cluster, ~.[[1]])
-  length_res <- length(david_object@cluster)
-
-  use_list <- list(x = cluster_list, y = 1:length_res,z = score_list)
-
-  use_func <- function(x,y,z) mutate(.data = asS3(x), cluster = paste0("cluster_", y), score = z)
-  result <- pmap(use_list, .f = use_func)
-
-  result <- purrr::reduce(result, rbind)
-
-  result <- result %>% mutate(Genes = str_split(Genes, pattern = ", "))
-
-  result <- result %>% mutate(Genes = map(Genes, ~as.character(use_gene_tbl[.]) %>% paste0(collapse = ", ")) %>% unlist())
-
-  return(result)
-}
-
-
-# filter low quolity cells ------------------------------------------------
-
- #sig_val %>% sig_val2  %>% group_by(cluster) %>% mutate(rank = row_number(-mean)) %>% arrange(cluster) %>% filter(rank == 1)
-
-
-#output cell type table
 
