@@ -1,8 +1,9 @@
-#' @import Seurat tidyverse ggplot2
-
 
 # data to list ------------------------------------------------------------
 
+#' transform dataframe into list
+#' @import Seurat tidyverse ggplot2
+#' @import purrr map
 
 
 df_to_list <- function(df) {
@@ -14,13 +15,15 @@ df_to_list <- function(df) {
     df_list[[i]] <- sub_row
     names(df_list)[i] <- rownames(df)[i]
   }
-  df_list <- map(df_list, ~.[!is.na(.)])
+  df_list <- purrr::map(df_list, ~.[!is.na(.)])
   return(df_list)
 }
 
 
 # do_seurat ---------------------------------------------------------------
 
+#' create seurat object from raw matrix data or seurat_data which have not been executed thorogh
+#' export
 
 do_seurat <- function(data) {
   if(!class(data) == "Seurat"){
@@ -29,81 +32,6 @@ do_seurat <- function(data) {
     object <- data
   }
   object[["percent.mt"]] <- PercentageFeatureSet(object, pattern = "^MT-")
-  VlnPlot(object, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
-  ggsave("plot1.jpg", device = "jpeg")
-
-  plot1 <- FeatureScatter(object, feature1 = "nCount_RNA", feature2 = "percent.mt")
-  plot2 <- FeatureScatter(object, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
-  CombinePlots(plots = list(plot1, plot2))
-  ggsave("plot2.jpg", device = "jpeg")
-
-  #object <- subset(object, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
-  object <- NormalizeData(object, normalization.method = "LogNormalize", scale.factor = 10000)
-  object <- FindVariableFeatures(object, selection.method = "vst", nfeatures = 2000)
-
-  # Identify the 10 most highly variable genes
-  top10 <- head(VariableFeatures(object), 10)
-
-  # plot variable features with and without labels
-  plot1 <- VariableFeaturePlot(object)
-  plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
-  CombinePlots(plots = list(plot1, plot2))
-  ggplot2::ggsave("plot3.jpg")
-
-  all.genes <- rownames(object)
-
-  #normalization data mean =1 variaty =0
-  object <- ScaleData(object, features = all.genes)
-  object <- RunPCA(object, features = VariableFeatures(object = object))
-
-  print(object[["pca"]], dims = 1:5, nfeatures = 5)
-
-  VizDimLoadings(object, dims = 1:2, reduction = "pca")
-  ggsave("plot4.jpg")
-
-  DimPlot(object, reduction = "pca")
-  ggsave("plot5.jpg")
-
-  DimHeatmap(object, dims = 15:30, cells = 500, balanced = TRUE)
-  ggsave("plot6.jpg")
-
-
-  #jackstraw analysis
-  object <- JackStraw(object, num.replicate = 10)
-  object <- ScoreJackStraw(object, dims = 1:20)
-
-  JackStrawPlot(object, dims = 1:20)
-  ggsave("plot7.jpg")
-
-
-
-  object <- FindNeighbors(object, dims = 1:27)
-  object <- FindClusters(object, resolution = 0.8)
-  object <- RunUMAP(object, dims = 1:30)
-  object <- RunTSNE(object, dims = 1:30)
-
-  DimPlot(object, reduction = "umap")
-  ggsave("plot8.jpg")
-
-  DimPlot(object, reduction = "tsne")
-  ggsave("plot9.jpg")
-
-  saveRDS(object, "normal.rds")
-
-  tmap(object = object, c('ALB', 'KRT7', 'CD68', 'CD3D', 'CD79A', 'IGJ','CD34', 'GNLY', 'FGFBP2', 'CD14', "MZB1"))
-  ggsave("plot10.jpg")
-
-
-  return(object)
-}
-
-do_seurat2 <- function(data) {
-  if(!class(data) == "Seurat"){
-    object <- CreateSeuratObject(counts = data, project = "object", min.cells = 3, min.features = 200)
-  }else{
-    object <- data
-  }
-  object[["percent.mt"]] <- PercentageFeatureSet(object, pattern = "^MT-")
 
   #object <- subset(object, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
   object <- NormalizeData(object, normalization.method = "LogNormalize", scale.factor = 10000)
@@ -130,79 +58,79 @@ do_seurat2 <- function(data) {
 
 
 
-#  function --------------------------------------------------------
+# tips  function --------------------------------------------------------
 
 
-#create present time as name
+#' return present time as name
+
 make_time <- function() {
   Sys.time() %>% str_remove_all('[:punct:]|\\s')
 }
 
 
-#plot
+
+
+
+# plot function -----------------------------------------------------------
+
+
+#' wrapper function of Dimplot return umap plot
+#' @export
+
 up <- function(object = data, label= TRUE,...) {
   DimPlot(object = object, label = label, ...)
 }
 
-upd <- function(label, object = data) {
-  up(object = object, group.by = "disease", pt.size = 2) + gghighlight(str_detect(disease, label ), label_key = T)
-}
 
-upr <- function(label, object = data) {
-  up(object = object, group.by = "reference", pt.size = 2) + gghighlight(str_detect(reference, label ), label_key = T)
-}
-
+#' wrapper function of Dimplot return tsne plot
+#' @export
 
 ts <- function(object = data, ...) {
   DimPlot(object = object, reduction = 'tsne', label = TRUE, ...)
 }
 
+#' wrapper function of FeaturePlot tsne
+#' @export
+
 tmap <- function(features, object = data, ...) {
   FeaturePlot(features = features,object = object, reduction = 'tsne',  cols = c('lightgray', 'red'), min.cutoff = 0, ...)
 }
 
+#' wrapper function of featureplot umap
+#' @export
 
 ump <- function(features, object = data,...) {
   FeaturePlot(features = features,object = object, cols = c('lightgray', 'red'), min.cutoff = 0,...)
 }
 
+#' violin plot
+#' @export
 
 vl <- function(features, object = data,...) {
   Seurat::VlnPlot(object = object, features = features, ...)
 }
 
 
-# scraping function -------------------------------------------------------
-
-# page <- xml2::read_html("https://www.ncbi.nlm.nih.gov/pmc/articles/PMC28094/")
-# page %>% rvest::html_nodes("#T2 .tag_hotlink")->a
-# a %>% str_extract("(?<=nuccore/).{1,8}") %>% str_remove_all("\\W")
-#
-
-# ggsave wrapper ----------------------------------------------------------
-
-
-plot_save <- function(object, name = make_time(), type = 'tiff') {
-  ggsave(plot =  object, filename = paste0('data/combined/plot/', name,'.',type), device = type)
-}
-
-
-
 # get gene data -----------------------------------------------------------
 
-get_gene <- function(object = data) {
-  object@assays$RNA@data %>% rownames
-}
+#' search gene expressed in seurat_data
+#' @export
 
-search_gene <- function() {
+search_gene <- function(data = data) {
   data@assays$RNA@data@Dimnames[[1]] %>% View
 }
+
+#' search gene expressed in seurat_data
+#' @export
 
 pick_gene <- function(pattern, data = data) {
   data@assays$RNA@data@Dimnames[[1]] %>% str_subset(., pattern =pattern)
 }
 
 # return absolute path ----------------------------------------------------
+
+#' search gene expressed in seurat_data
+#' @export
 
 abpath <- function(path = clipr::read_clip()) {
   normalizePath(path) %>% stringr::str_replace_all("\\\\", "/") %>% clipr::write_clip()
@@ -1035,10 +963,6 @@ sub_fil <- function(object = data, ...) {
   return(res)
 }
 
-pick_id <- function(..., object =data) {
-  object@meta.data %>% filter(...) %>% pull(id)
-}
-
 
 # gene annotation analysis ------------------------------------------------
 
@@ -1050,159 +974,69 @@ convertMouseGene <- function(x){
 }
 
 
-#reactomrPA
-geneano_enricher <- function(gene_entrez, pvalueCutoff = 0.05, qvalueCutoff = 0.2) {
-  res <- try(ReactomePA::enrichPathway(gene=gene_entrez, pvalueCutoff=pvalueCutoff, ,qvalueCutoff = qvalueCutoff, readable=T))
-  #if(class(res)== "try-error")return(NULL)
-}
 
-#group go
-geneano_groupgo <- function(gene, ont_type = c("MF","BP", "CC")) {
-  library(org.Hs.eg.db)
-  res_go <- list()
-  for(i in seq_along(ont_type)){
-  res_go[i] <- try(clusterProfiler::groupGO(gene     = gene,
-            OrgDb    = org.Hs.eg.db,
-            ont      = ont_type[i],
-            level    = 3,
-            readable = TRUE))
-  }
-  names(res_go) <- ont_type
-  return(res_go)
-}
 
-#enrich go
-geneano_enrichgo <- function(gene) {
-        res <-  try(clusterProfiler::enrichGO(gene          = gene,
-                  OrgDb         = org.Hs.eg.db,
-                  ont           = "BP",
-                  pAdjustMethod = "BH",
-                  pvalueCutoff  = 0.01,
-                  qvalueCutoff  = 0.05,
-                  readable      = TRUE))
+do_enrich_msig <- function(use_gene, name) {
+  m_df <- msigdbr::msigdbr(species = "Homo sapiens", category = "H") %>% dplyr::select(gs_name, gene_symbol)
+  em <- clusterProfiler::enricher(use_gene, TERM2GENE=m_df)
+  res <- em@result
+  return(res)
 }
 
 
-geneano_msig <- function(gene_symbol) {
-  #gmtfile <- system.file("extdata", "c7.all.v7.0.symbols.gmt", package="clusterProfiler")
-  gmtfile2 <- system.file("extdata", "c5.all.v7.0.symbols.gmt", package="clusterProfiler")
-  #c7 <- read.gmt(gmtfile)
-  c5 <- clusterProfiler::read.gmt(gmtfile2)
-  res <- try(clusterProfiler::enricher(gene = gene_entrez, TERM2GENE=c5))
-
-}
-
-geneano_msig_gsea <- function(gene_list) {
-  #gmtfile <- system.file("extdata", "c7.all.v7.0.symbols.gmt", package="clusterProfiler")
-  gmtfile2 <- system.file("extdata", "c5.all.v7.0.symbols.gmt", package="clusterProfiler")
-  #c7 <- read.gmt(gmtfile)
-  c5 <- clusterProfiler::read.gmt(gmtfile2)
-  res <- try(clusterProfiler::GSEA(gene = gene_list, TERM2GENE=c5))
+do_enrich_kegg <- function(use_gene) {
+  tbl <- convert_gene_to_ENTREZ(use_gene)
+  tbl_cnv <- tbl$SYMBOL
+  names(tbl_cnv) <- tbl$ENTREZID
+  res <- clusterProfiler::enrichKEGG(gene = tbl$ENTREZID,organism= 'hsa',pvalueCutoff = 0.05)
+  res <- res@result %>% mutate(geneID= map(geneID, ~str_split(.x[[1]], pattern = "/") %>% map(~tbl_cnv[.] %>% as.character) %>% unlist %>% paste0(collapse = "/") %>% as.character) )
+  res %>% mutate(geneID = map(geneID, ~.x[[1]]) %>% as.character()) %>% return()
 }
 
 
-do_geneano <- function(marker_df, res_name = "res_enricher",gene_type = gene_entrez, use_func = geneano_enricher) {
+do_enrich_reactome <- function(use_gene) {
+  tbl <- convert_gene_to_ENTREZ(use_gene)
+  tbl_cnv <- tbl$SYMBOL
+  names(tbl_cnv) <- tbl$ENTREZID
+  res <- ReactomePA::enrichPathway(gene = tbl$ENTREZID,pvalueCutoff = 0.05)
+  res <- res@result %>% mutate(geneID= map(geneID, ~str_split(.x[[1]], pattern = "/") %>% map(~tbl_cnv[.] %>% as.character) %>% unlist %>% paste0(collapse = "/") %>% as.character) )
+  res %>% mutate(geneID = map(geneID, ~.x[[1]]) %>% as.character()) %>% return()
+}
 
-  gene_type <- enquo(gene_type)
-  res_name <- enquo(res_name)
-  marker_df %>% mutate(!!res_name := map(!!gene_type, ~use_func(gene = .)))
+
+do_enrich_go <- function(use_gene, ont = "BP") {
+  tbl <- convert_gene_to_ENTREZ(use_gene)
+  tbl_cnv <- tbl$SYMBOL
+  names(tbl_cnv) <- tbl$ENTREZID
+  res <- clusterProfiler::enrichGO(gene          = tbl$ENTREZID,
+                                   OrgDb         = org.Hs.eg.db,
+                                   ont           = ont,
+                                   pAdjustMethod = "BH",
+                                   pvalueCutoff  = 0.01,
+                                   qvalueCutoff  = 0.05,
+                                   readable      = TRUE)
+  res <- res@result #%>% mutate(geneID= map(geneID, ~str_split(.x[[1]], pattern = "/") %>% map(~tbl_cnv[.] %>% as.character) %>% unlist %>% paste0(collapse = "/") %>% as.character) )
+  res %>% mutate(geneID = map(geneID, ~.x[[1]]) %>% as.character()) %>% return()
 }
 
 
 
- add_enrich_anotation <- function(marker_list) {
-   marker_list <- marker_list %>% do_geneano(use_func = geneano_enricher, res_name = "res_enricher", gene_type = gene_entrez)
-   marker_list <- marker_list %>% mutate(bar_plot = map2(res_enricher, cluster, ~bar(.x, .y)))
-   marker_list <- marker_list %>% mutate(cnet_plot = map2(res_enricher, cluster, ~cnet(.x, .y)))
- }
+do_pathway <- function(marker_df) {
+  #marker_df %<>% group_by(cluster) %>% nest
 
+  #marker_df %<>% mutate(gene = map(data, ~filter(.x, p_val_adj < 0.05) %>% pull(gene)))
 
+  marker_df %<>% mutate(res_hollmark = map(gene, ~do_enrich_msig(.x)))
 
- #annotation plot
- geneano_bar <- function(marker_list, res_geneano = res_enrich) {
-   res_geneano <- enquo(res_geneano)
-   marker_list %>% mutate(bar  = map2(!!res_geneano, cluster, ~bar(arg1 = .x, arg2 = .y)))
- }
+  marker_df %<>% mutate(res_kegg = map(gene, ~do_enrich_kegg(.x)))
+  marker_df %<>% mutate(res_reactome = map(gene, ~do_enrich_reactome(.x)))
+  marker_df %<>% mutate(res_david = map(gene, ~do_david(.x)))
+  marker_df %<>% mutate(res_go_bp = map(gene, ~try(do_enrich_go(.x))))
+  marker_df %<>% mutate(res_go_cc = map(gene, ~try(do_enrich_go(.x, ont = "CC"))))
 
- geneano_cnet <- function(marker_list, res_geneano = res_enrich) {
-   res_geneano <- enquo(res_geneano)
-   marker_list %>% mutate(bar  = map2(!!res_geneano, cluster, ~cnet(arg1 = .x, arg2 = .y)))
- }
-
-
- bar <- function(arg1, arg2, arg3 = "cluster", pathname = "pathway_plot") {
-
-   if(!dir.exists(pathname)) dir.create(pathname)
-   res <- try(barplot(arg1, title =as.character(arg2),showCategory = 20, supressResult = T))
-   if(class(res)=="try-error"){
-     return(NULL)
-   }else res
-   ggsave(filename = paste0(pathname, "/", arg3,"_", as.character(arg2), "_enrichplot.jpg"),
-          device = "jpg", width = 30, height = 30, units = "cm")
-   return(res)
- }
-
- cnet <- function(arg1, arg2, arg3 = "cluster", pathname = "pathway_plot") {
-   if(!dir.exists(pathname)) dir.create(pathname)
-   res <- try(clusterProfiler::cnetplot(x = arg1, title = as.character(arg2),showCategory = 20, supressResult = T))
-   if(class(res)=="try-error"){
-     return(NULL)
-   }else res
-   ggsave(filename = paste0(pathname, "/", arg3,"_", as.character(arg2), "_cnetplot.jpg"),
-          device = "jpg", width = 30, height = 30, units = "cm")
-   return(res)
- }
-
-
-
-
-
-# filter  -----------------------------------------------------------------
-
-
-add_all <- function(data) {
-  data <- add_info(data = data)
-  data <- add_sig_val(object = data)
+  return(marker_df)
 }
 
-fil_cell <- function(cell_type, remove_cluster = NULL, remove_disease = NULL) {
-
-  data[[]] %>% dplyr::select(id,ends_with("_m")) %>% gather(-id,key = "type",value = "value" ) %>%
-    group_by(id) %>%  mutate(rank = row_number(-value)) %>% arrange(id,rank) %>%
-    filter(type == paste0(cell_type, "_m"), rank == 1|value>0) %>% pull(id)-> use_id
-  data <- sub_fil(object = data, id %in%use_id, !seurat_clusters %in% remove_cluster, !disease %in% remove_disease)
-}
-
-
-fil_cell2 <- function(cell_type) {
-
-  data[[]] %>% dplyr::select(id,ends_with("_m")) %>% gather(-id,key = "type",value = "value" ) %>%
-    group_by(id) %>%  mutate(rank = row_number(-value)) %>% arrange(id,rank) %>%
-    filter(type %in% paste0(cell_type, "_m"), rank == 1, value>0) %>% pull(id)-> use_id
-
-  data <- SubsetData(data, cells = use_id)
-}
-
-
-
-
-# barplot -----------------------------------------------------------------
-
-
-
-
-
-
-
-
-# zip ---------------------------------------------------------------------
-
-#function converting df to list
-zip <- function(df) {
-  list <- df$data_filtered
-  names(list) <- df$batch
-  return(list)
-}
 
 
 # venn  -------------------------------------------------------------------
@@ -1229,29 +1063,11 @@ make_venn <- function(df = dirr_test_res) {
 }
 
 
-# get marker table --------------------------------------------------------
-
-#result of findallmarker
-
-get_marker_table <- function(marker_list, ...) {
-   #filter_var <- enquo(filter_var)
-  marker_list %>% filter(...) %>% dplyr::select(cluster, gene) %>%
-    group_by(cluster) %>% nest %>%
-    mutate(data = unlist(map(data, ~pull(.x, gene) %>% paste0(., collapse = ", ")))) %>%
-    unnest() %>%
-    write_clip()
-}
-
-get_diff_test_marker <- function(diff_test_res, ...) {
-  diff_test_res %>% filter(...) %>% dplyr::select(cluster, batch, gene) %>%
-    group_by(cluster, batch) %>% nest() %>%
-    mutate(data = unlist(map(data, ~pull(.x, gene) %>% paste0(., collapse = ", ")))) %>%
-    write_clip()
-    #write_csv(., path = "diff_test_table.csv")
-}
-
 
 # tile_plot ---------------------------------------------------------------
+
+
+
 
 tile_plot <- function(gene = "gene_list", object = data, title = "", order = F, plot_wrap = F, fil_val= NULL, color_label = T, ...) {
   if(str_detect(gene, "_list")){
@@ -1775,12 +1591,8 @@ my_add <- function(a,b) {
 # clustering --------------------------------------------------------------
 
 
-<<<<<<< HEAD
 
-make_av_df <- function(data, gene_list) {
-=======
 make_av_df <- function(data, gene_list, use_label ="integrated_snn_res.3" ) {
->>>>>>> 53a39bbde5d6f4356f12437d1f10dc017d32bb14
   DefaultAssay(data) <- "RNA"
   mt <- FetchData(data, unique(unlist(gene_list)), slot = "data")
   mt$cluster <- data[[]] %>% dplyr::pull(use_label)
