@@ -3,7 +3,6 @@
 
 #' transform dataframe into list
 #' @import Seurat tidyverse ggplot2
-#' @import purrr map
 
 
 df_to_list <- function(df) {
@@ -23,7 +22,7 @@ df_to_list <- function(df) {
 # do_seurat ---------------------------------------------------------------
 
 #' create seurat object from raw matrix data or seurat_data which have not been executed thorogh
-#' export
+#' @export
 
 do_seurat <- function(data) {
   if(!class(data) == "Seurat"){
@@ -62,6 +61,7 @@ do_seurat <- function(data) {
 
 
 #' return present time as name
+#' @export
 
 make_time <- function() {
   Sys.time() %>% str_remove_all('[:punct:]|\\s')
@@ -131,10 +131,9 @@ pick_gene <- function(pattern, data = data) {
 
 # signature plot ---------------------------------------------------------------------
 
-#make df of each cluster's signature score: each_value/max_value, fraction_rate: expressed_cell(>0)/total_cells
+#' make df of each cluster's signature score: each_value/max_value, fraction_rate: expressed_cell(>0)/total_cells
 
-
-
+#' @export
 
 gm_mean1 = function(a){prod(a)^(1/length(a))}
 
@@ -143,7 +142,9 @@ gm_mean2 = function(x, na.rm=TRUE){
 }
 
 
-#' calculate
+#' calculate module score
+#' @export
+
 sig_val <- function(object = data, marker = "gene_list", use_func = "mean", add_id_cluster = T,filter = F) {
   gene_list <- get_list(marker)
   mt <- object@meta.data
@@ -210,17 +211,6 @@ sig_val2 <- function(score_mt) {
     group_by(signature, cluster) %>%
     summarise(fraction_of_cells = sum(score>0)/n(), mean = mean(score)) %>%
     group_by(signature) %>%
-    mutate(max = max(mean)) %>%
-    mutate(score = mean/max)
-}
-
-
-sig_val3 <- function(score_mt) {
-
-  score_mt %>% gather(-cluster, -cell_id, key = "signature", value = "score") %>%
-    group_by(cluster, signature) %>%
-    summarise(fraction_of_cells = sum(score>0)/n(), mean = mean(score)) %>%
-    group_by(cluster) %>%
     mutate(max = max(mean)) %>%
     mutate(score = mean/max)
 }
@@ -885,6 +875,8 @@ symbol_entrez_conv <- function(object) {
   return(temp)
 }
 
+#' convert david result to tidy dataframe
+#' @export
 
 conv_david <- function(david_object, use_gene_tbl) {
   cluster_list <-map(david_object@cluster, ~.[[2]] %>% asS3)
@@ -905,27 +897,53 @@ conv_david <- function(david_object, use_gene_tbl) {
   return(result)
 }
 
+#' return david input gene information
+
+david_gene_report <- function(use_gene) {
 
 
-do_pathway <- function(marker_df) {
-  #marker_df %<>% group_by(cluster) %>% nest
+  david<- RDAVIDWebService::DAVIDWebService(email="ktaka@stu.kanazawa-u.ac.jp",
+                                            url="https://david.ncifcrf.gov/webservice/services/DAVIDWebService.DAVIDWebServiceHttpSoap12Endpoint/")
 
-  #marker_df %<>% mutate(gene = map(data, ~filter(.x, p_val_adj < 0.05) %>% pull(gene)))
+  gene_df <- convert_gene(x = use_gene)
+  gene_tbl <- symbol_entrez_conv(object = gene_df)
 
-  marker_df %<>% mutate(res_hollmark = map(gene, ~do_enrich_msig(.x)))
+  result<-RDAVIDWebService::addList(david, gene_df$ENTREZID,
+                                    idType="ENTREZ_GENE_ID",
+                                    listName= "gene", listType="Gene")
 
-  marker_df %<>% mutate(res_kegg = map(gene, ~do_enrich_kegg(.x)))
-  marker_df %<>% mutate(res_reactome = map(gene, ~do_enrich_reactome(.x)))
-  marker_df %<>% mutate(res_david = map(gene, ~do_david(.x)))
-  marker_df %<>% mutate(res_go_bp = map(gene, ~try(do_enrich_go(.x))))
-  marker_df %<>% mutate(res_go_cc = map(gene, ~try(do_enrich_go(.x, ont = "CC"))))
+  gene_report <- RDAVIDWebService::getGeneListReport(david)
+  rerun(gene_report)
 
-  return(marker_df)
 }
 
 
 
+
+
+#' do pathway analysis of several
+#' @export
+
+do_pathway <- function(data) {
+  #stopifnot(all(class(data) == c("grouped_df", "tbl_df", "tbl", "data.frame")))
+  cat("------------msig_procedure--------\n")
+  data <- data %>% mutate(enrich_h = map(gene, ~try(do_enrich_msig(.x))))
+  cat("------------kegg_procedure--------\n")
+  data <- data %>% mutate(enrich_kegg = map(gene, ~try(do_enrich_kegg(.x))))
+  cat("------------reactome_procedure--------\n")
+  data <- data %>% mutate(enrich_reactome = map(gene, ~try(do_enrich_reactome(.x))))
+  cat("------------david_procedure--------\n")
+  data <- data %>% mutate(enrich_david = map(gene, ~try(do_david(.x))))
+  cat("------------go_bp_procedure--------\n")
+  data <- data %>% mutate(res_go_bp = map(gene, ~try(do_enrich_go(.x))))
+  cat("------------go_cc_procedure--------\n")
+  data <- data %>% mutate(res_go_cc = map(gene, ~try(do_enrich_go(.x, ont = "CC"))))
+  return(data)
+}
+
+
 # venn  -------------------------------------------------------------------
+
 
 do_venn <- function(arg1, arg2) {
   if(!dir.exists("batch_diff")) dir.create("batch_diff")
@@ -974,6 +992,7 @@ remove_list_dup <- function(gene_list) {
 
 
 tile_plot <- function(gene = "gene_list", object = data, title = "", order = F, plot_wrap = F, fil_val= NULL, color_label = T, ...) {
+  stopifnot(class(gene) != "Seurat")
   if(str_detect(gene, "_list")){
     gene <- get_list(gene)
   }
@@ -1234,14 +1253,14 @@ batch_cor_heatmap <- function(av_df_batch, method = "pearson") {
 # clustering --------------------------------------------------------------
 
 
-aut_clust <- function(object = object, marker) {
-  Idents(object) <- "integrated_snn_res.1"
+aut_clust <- function(object = object, original_label_name = "seurat_clusters", marker) {
+  Idents(object) <- original_label_name
   use_df <- sig_val(object = object, marker = marker) %>% sig_val2()
 
   sig_df <- use_df %>% group_by(cluster) %>% top_n(1, mean) %>% dplyr::arrange(cluster) %>% dplyr::select(signature, cluster)
 
   object[[]] %>%
-    left_join(sig_df, by = c("integrated_snn_res.1" = "cluster")) %>%
+    left_join(sig_df, by = c("seurat_clusters" = "cluster")) %>%
     pull(signature) -> label
   return(label)
   # object_name <- as.character(substitute(object))
@@ -1270,6 +1289,211 @@ clu_data <- function(data = data, gene_list = gene_list, use_label = "seurat_clu
 
 
 
+
+# network_analysis_singlecell_singal_R ------------------------------------
+
+make_clust_list <- function(seurat_data, meta_name) {
+  seurat_data$id <- colnames(seurat_data)
+  cluster <-
+    seurat_data[[]] %>% select(id, cluster_name = meta_name) %>%
+    mutate(
+      cluster_no = fct_drop(cluster_name) %>% as.numeric,
+      id = paste(id, cluster_name, sep = ".")
+    )
+
+  use_name <-
+    cluster %>% distinct(cluster_name, cluster_no) %>% arrange(cluster_no) %>% pull(cluster_name) %>% as.character()
+  use_cluster <- cluster$cluster_no
+  names(use_cluster) <- cluster$id
+
+  cluster_list <- list(use_name = use_name,
+                       use_cluster = use_cluster)
+
+  return(cluster_list)
+}
+
+
+inter_signal <- function(seurat_data, cluster_list) {
+  genes <- rownames(seurat_data@assays$RNA@counts )
+  signal <-
+    SingleCellSignalR::cell_signaling(
+      data = as.matrix(seurat_data@assays$RNA@counts),
+      genes = genes,
+      cluster = cluster_list$use_cluster,
+      c.names = cluster_list$use_name,
+      write = FALSE
+    )
+  return(signal)
+}
+
+
+inter_net <- function(seurat_data, signal, cluster_list) {
+  inter.net <-
+    SingleCellSignalR::inter_network(
+      data = as.matrix(seurat_data@assays$RNA@data),
+      signal = signal,
+      genes = rownames(seurat_data),
+      cluster = cluster_list$use_cluster,
+      c.names = cluster_list$use_name,
+      write = FALSE
+    )
+  return(inter.net)
+
+}
+
+do_signal <- function(seurat_data, meta_name) {
+  use_clust_list <-
+    make_clust_list(seurat_data = seurat_data, meta_name = meta_name)
+  signal <-
+    inter_signal(seurat_data = seurat_data, cluster_list = use_clust_list)
+}
+
+
+
+
+# add_disease_label -------------------------------------------------------
+
+
+com_label <- function(data = data, first_label = "first", second_label = "second", label_name = "com_label", add_num = T) {
+  data[[label_name]] <- interaction(data[[first_label]][,], data[[second_label]][,])
+  if(add_num){
+    n_tab <- table(sub_hep[[label_name]][,])
+    n_table <- as.vector(n_tab)
+    names(n_table) <- names(n_tab)
+    data[[label_name]][,] <- paste0(data[[label_name]][,], "(n=", n_table[data[[label_name]][,]], ")")
+  }
+  return(data)
+}
+
+
+
+# change_label ------------------------------------------------------------
+
+
+
+label_change <- function(object, data, reference_name) {
+
+  stopifnot(class(object)=="Seurat")
+  stopifnot(class(data)=="Seurat")
+  stopifnot(class(reference_name)== "character")
+
+  reference_list <- unique(data$source_ref)
+  stopifnot(reference_name %in% reference_list)
+
+  use_tail <- data[[]] %>%
+    filter(source_ref== reference_name) %>%
+    pull(id) %>%
+    str_extract("_\\d{1,2}$") %>%
+    unique()
+
+  object$id <- colnames(object) %>% paste0(use_tail)
+
+  use_df <- data[[]] %>% select(id, use_label)
+
+  compositional_list <- object[[]] %>% left_join(use_df, key = "id") %>%
+    filter(!is.na(use_label)) %>%
+    select(seurat_clusters, use_label) %>%
+    group_by(seurat_clusters, use_label) %>%
+    count() %>%
+    group_by(seurat_clusters) %>%
+    top_n(1, n) %>%
+    select(-n)
+
+
+  compositional_list
+
+  object$use_label <- object[[]] %>%
+    left_join(compositional_list, key = "seurat_cluters") %>%
+    pull(use_label)
+
+  return(object)
+}
+
+
+
+# gene_vs_analysis --------------------------------------------------------
+
+
+gene_binom <- function(data, gene, cutoff_value) {
+
+  stopifnot(class(data) == "Seurat")
+  stopifnot(class(gene) == "character")
+  stopifnot(gene %in% rownames(data))
+
+  use_df <- FetchData(data, vars = gene)
+  use_df <- use_df %>% mutate_all(
+      ~if_else(.x > cutoff_value,"positive", "negative") %>% as.factor %>% fct_relevel("positive", "negative")
+    )
+
+  use_df <- use_df %>% dplyr::select(contains(gene))
+  colnames(use_df) <- paste0(colnames(use_df), "_pos_nega")
+
+  data@meta.data <- data@meta.data %>% cbind(use_df)
+  return(data)
+}
+
+gene_binom_vs <- function(data, gene, cutoff_value = 0) {
+  data <- gene_binom(data = data, gene = gene,cutoff_value = cutoff_value)
+  Idents(data) <- paste0(gene,"_pos_nega")
+
+  result <- FindAllMarkers(data, only.pos = T, min.pct = 0.2, min.diff.pct = 0.15)
+  return(result)
+}
+
+
+
+sep_marker <- function(gene_name, cell_type, source_name) {
+  Idents(data) <- paste0(gene_name,"_pos_nega")
+
+
+  sub <- sub_fil(data, use_label == cell_type, source_dis == source_name)
+  result <- FindAllMarkers(sub, only.pos = T, min.pct = 0.2, min.diff.pct = 0.15)
+  result$cell_gene <- paste0(cell_type,"_", gene_name)
+  return(result)
+}
+
+
+gene_vs <- function(data, gene, cutoff_value = 0) {
+
+  stopifnot(class(data) == "Seurat")
+  stopifnot(class(gene) == "character")
+  stopifnot(gene %in% rownames(data))
+
+  data <- gene_binom(data = data, gene = gene, cutoff_value = cutoff_value)
+
+  use_df <- FetchData(data, c(gene, "source_dis", "use_label"))
+
+  rank_df <- use_df %>%
+    group_by(source_dis, use_label) %>%
+    summarise_all(~(sum(.x > cutoff_value))/length(.x)) %>%
+    pivot_longer(cols = -c(1,2), names_to = "gene", values_to = "value") %>%
+    group_by(source_dis,gene) %>%
+    mutate(rank = row_number(-value)) %>%
+    filter(rank ==1)
+
+  marker_df <- rank_df %>%
+    mutate(def = pmap(list(gene, use_label, source_dis), ~try(sep_marker(..1,..2,..3))))
+
+  marker_df <- marker_df %>% filter(class(def[[1]])!="try-error")
+
+  return(marker_df)
+}
+
+
+
+
+
+a <- function() {
+  use_df <- FetchData(data, c(gene, bb))
+  enquo()
+  rank_df <- use_df %>%
+    group_by(bb) %>%
+    summarise_all(~(sum(.x > cutoff_value))/length(.x)) %>%
+    pivot_longer(cols = -c(1,2), names_to = "gene", values_to = "value") %>%
+    group_by(source_dis,gene) %>%
+    mutate(rank = row_number(-value)) %>%
+    filter(rank ==1)
+}
 
 
 
