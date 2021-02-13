@@ -1496,4 +1496,15 @@ a <- function() {
 }
 
 
+# read Seurat object ------------------------------------------------------
+
+read_seurat <- function(type){
+  switch(type,
+         macparland = readRDS("~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/macpoland.rds") %>%
+           assign(type, value = ., envir = globalenv()),
+         aizarani =  readRDS("~/single_cell/single_cell_project/data/single_cell_data/GSE124395/aizarani.rds")%>%
+           assign(type, value = ., envir = globalenv()))
+
+}
+
 
