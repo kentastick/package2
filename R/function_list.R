@@ -1505,6 +1505,7 @@ read_seurat <- function(type){
          aizarani =  readRDS("~/single_cell/single_cell_project/data/single_cell_data/GSE124395/aizarani.rds")%>%
            assign(type, value = ., envir = globalenv()))
 
+
 }
 
 
