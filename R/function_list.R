@@ -761,7 +761,7 @@ add_meta_binval <- function(gene, object = data) {
 sub_fil <- function(object = data, ...) {
   object$id <- colnames(object)
   use_id <- object@meta.data %>% filter(...) %>% pull(id)
-  res <- Seurat:::subset.Seurat(x = object, cells = use_id)
+  res <- subset(x = object, cells = use_id)
   return(res)
 }
 
@@ -934,12 +934,28 @@ do_pathway <- function(data) {
   data <- data %>% mutate(enrich_reactome = map(gene, ~try(do_enrich_reactome(.x))))
   cat("------------david_procedure--------\n")
   data <- data %>% mutate(enrich_david = map(gene, ~try(do_david(.x))))
-  cat("------------go_bp_procedure--------\n")
-  data <- data %>% mutate(res_go_bp = map(gene, ~try(do_enrich_go(.x))))
-  cat("------------go_cc_procedure--------\n")
-  data <- data %>% mutate(res_go_cc = map(gene, ~try(do_enrich_go(.x, ont = "CC"))))
+  #cat("------------go_bp_procedure--------\n")
+  #data <- data %>% mutate(res_go_bp = map(gene, ~try(do_enrich_go(.x))))
+  #cat("------------go_cc_procedure--------\n")
+  #data <- data %>% mutate(res_go_cc = map(gene, ~try(do_enrich_go(.x, ont = "CC"))))
   return(data)
 }
+
+
+
+
+
+
+
+marker_form <- function(marker) {
+  marker <- marker %>% group_by(cluster) %>% nest
+  marker <- marker %>% mutate(gene = map(data, ~filter(.x, p_val_adj<0.05) %>% pull(gene)))
+  return(marker)
+}
+
+
+
+
 
 
 # venn  -------------------------------------------------------------------
@@ -1500,12 +1516,53 @@ a <- function() {
 
 read_seurat <- function(type){
   switch(type,
+         pbc_1 = readRDS("~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/pbc_case1.rds") %>%
+           assign(type, value = ., envir = globalenv()),
+         pbc_2 = readRDS("~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/pbc_case2.rds") %>%
+           assign(type, value = ., envir = globalenv()),
+         mca = readRDS("~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/mca_liver.rds") %>%
+           assign(type, value = ., envir = globalenv()),
+         data = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/integrated_data/integrated_after_fil.rds") %>%
+           assign(type, value = ., envir = globalenv()),
          macparland = readRDS("~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/macpoland.rds") %>%
            assign(type, value = ., envir = globalenv()),
          aizarani =  readRDS("~/single_cell/single_cell_project/data/single_cell_data/GSE124395/aizarani.rds")%>%
+           assign(type, value = ., envir = globalenv()),
+         rama_ch = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45nega_ch.rds") %>%
+           assign(type, value = ., envir = globalenv()),
+         rama_ht = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45nega_ht.rds") %>%
+           assign(type, value = ., envir = globalenv()),
+         rama_ch_cd45 = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45posi_ch.rds") %>%
+           assign(type, value = ., envir = globalenv()),
+         rama_ht_cd45 = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45posi_ht.rds") %>%
+           assign(type, value = ., envir = globalenv()),
+         segal = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/segal.rds") %>%
+           assign(type, value = ., envir = globalenv()),
+         ma_1 = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ma_set1.rds") %>%
+           assign(type, value = ., envir = globalenv()),
+         ma_2 = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ma_set2.rds") %>%
            assign(type, value = ., envir = globalenv()))
 
 
 }
 
+save_seurat <- function(type){
+  switch(type,
+         pbc_1 = saveRDS(pbc_1, "~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/pbc_case1.rds"),
+         pbc_2 = saveRDS(pbc_2, "~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/pbc_case2.rds"),
+         mca = saveRDS(mca,"~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/mca_liver.rds"),
+         macparland = saveRDS(macparland, "~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/macpoland.rds"),
+         aizarani = saveRDS(aizarani,"~/single_cell/single_cell_project/data/single_cell_data/GSE124395/aizarani.rds"),
+         rama_ch = save(rama_ch, "~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45nega_ch.rds"),
+         rama_ht = readRDS(rama_ht,"~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45nega_ht.rds"),
+         rama_ch_cd45 = readRDS(rama_ch_cd45,"~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45posi_ch.rds"),
+         rama_ht_cd45 = readRDS(rama_ht_cd45,"~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45posi_ht.rds"),
+         segal = readRDS(segal, "~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/segal.rds"),
+         ma_1 = readRDS(ma_1,"~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ma_set1.rds"),
+         ma_2 = readRDS(ma_2,"~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ma_set2.rds")
+  )
+
+
+
+}
 
