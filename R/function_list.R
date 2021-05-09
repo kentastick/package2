@@ -451,8 +451,8 @@ save_list <- function(marker) {
                      "~/single_cell/package2/test/gene_list/",
                      "E:/single_cell_project/package2/test/gene_list/",
                      "./test/gene_list/",
-                     "D:/package2/test/gene_list",
-                     "E:/package2/test/gene_list",
+                     "D:/package2/test/gene_list/",
+                     "E:/package2/test/gene_list/",
                      "~/package2/test/gene_list/"
                      )
   for (i in gene_list_path){
@@ -468,8 +468,8 @@ get_list <- function(marker, output = T) {
                      "~/single_cell/package2/test/gene_list/",
                      "E:/single_cell_project/package2/test/gene_list/",
                      "./test/gene_list/",
-                     "D:/package2/test/gene_list",
-                     "E:/package2/test/gene_list",
+                     "D:/package2/test/gene_list/",
+                     "E:/package2/test/gene_list/",
                      "~/package2/test/gene_list/"
                      )
   for (i in gene_list_path){
@@ -485,8 +485,8 @@ get_list_name <- function() {
                      "~/single_cell/package2/test/gene_list/",
                      "E:/single_cell_project/package2/test/gene_list/",
                      "./test/gene_list/",
-                     "D:/package2/test/gene_list",
-                     "E:/package2/test/gene_list",
+                     "D:/package2/test/gene_list/",
+                     "E:/package2/test/gene_list/",
                      "~/package2/test/gene_list/"
                      )
   for (i in gene_list_path){
