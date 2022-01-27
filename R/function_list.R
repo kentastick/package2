@@ -858,7 +858,8 @@ do_enrich_go <- function(use_gene, ont = "BP") {
 
 do_david <- function(use_gene, listName = "gene") {
 
-  david<- RDAVIDWebService::DAVIDWebService(email="ktaka@stu.kanazawa-u.ac.jp", url="https://david.ncifcrf.gov/webservice/services/DAVIDWebService.DAVIDWebServiceHttpSoap12Endpoint/")
+  david<- RDAVIDWebService::DAVIDWebService(email="ktaka@stu.kanazawa-u.ac.jp",
+                                            url="https://david.ncifcrf.gov/webservice/services/DAVIDWebService.DAVIDWebServiceHttpSoap12Endpoint/")
 
   gene_df <- convert_gene(x = use_gene)
   gene_tbl <- symbol_entrez_conv(object = gene_df)
@@ -1463,112 +1464,4 @@ gene_binom_vs <- function(data, gene, cutoff_value = 0) {
 }
 
 
-
-sep_marker <- function(gene_name, cell_type, source_name) {
-  Idents(data) <- paste0(gene_name,"_pos_nega")
-
-
-  sub <- sub_fil(data, use_label == cell_type, source_dis == source_name)
-  result <- FindAllMarkers(sub, only.pos = T, min.pct = 0.2, min.diff.pct = 0.15)
-  result$cell_gene <- paste0(cell_type,"_", gene_name)
-  return(result)
-}
-
-
-gene_vs <- function(data, gene, cutoff_value = 0) {
-
-  stopifnot(class(data) == "Seurat")
-  stopifnot(class(gene) == "character")
-  stopifnot(gene %in% rownames(data))
-
-  data <- gene_binom(data = data, gene = gene, cutoff_value = cutoff_value)
-
-  use_df <- FetchData(data, c(gene, "source_dis", "use_label"))
-
-  rank_df <- use_df %>%
-    group_by(source_dis, use_label) %>%
-    summarise_all(~(sum(.x > cutoff_value))/length(.x)) %>%
-    pivot_longer(cols = -c(1,2), names_to = "gene", values_to = "value") %>%
-    group_by(source_dis,gene) %>%
-    mutate(rank = row_number(-value)) %>%
-    filter(rank ==1)
-
-  marker_df <- rank_df %>%
-    mutate(def = pmap(list(gene, use_label, source_dis), ~try(sep_marker(..1,..2,..3))))
-
-  marker_df <- marker_df %>% filter(class(def[[1]])!="try-error")
-
-  return(marker_df)
-}
-
-
-
-
-
-a <- function() {
-  use_df <- FetchData(data, c(gene, bb))
-  enquo()
-  rank_df <- use_df %>%
-    group_by(bb) %>%
-    summarise_all(~(sum(.x > cutoff_value))/length(.x)) %>%
-    pivot_longer(cols = -c(1,2), names_to = "gene", values_to = "value") %>%
-    group_by(source_dis,gene) %>%
-    mutate(rank = row_number(-value)) %>%
-    filter(rank ==1)
-}
-
-
-# read Seurat object ------------------------------------------------------
-
-read_seurat <- function(type){
-  switch(type,
-         pbc_1 = readRDS("~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/pbc_case1.rds") %>%
-           assign(type, value = ., envir = globalenv()),
-         pbc_2 = readRDS("~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/pbc_case2.rds") %>%
-           assign(type, value = ., envir = globalenv()),
-         mca = readRDS("~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/mca_liver.rds") %>%
-           assign(type, value = ., envir = globalenv()),
-         data = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/integrated_data/integrated_after_fil.rds") %>%
-           assign(type, value = ., envir = globalenv()),
-         macparland = readRDS("~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/macpoland.rds") %>%
-           assign(type, value = ., envir = globalenv()),
-         aizarani =  readRDS("~/single_cell/single_cell_project/data/single_cell_data/GSE124395/aizarani.rds")%>%
-           assign(type, value = ., envir = globalenv()),
-         rama_ch = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45nega_ch.rds") %>%
-           assign(type, value = ., envir = globalenv()),
-         rama_ht = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45nega_ht.rds") %>%
-           assign(type, value = ., envir = globalenv()),
-         rama_ch_cd45 = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45posi_ch.rds") %>%
-           assign(type, value = ., envir = globalenv()),
-         rama_ht_cd45 = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45posi_ht.rds") %>%
-           assign(type, value = ., envir = globalenv()),
-         segal = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/segal.rds") %>%
-           assign(type, value = ., envir = globalenv()),
-         ma_1 = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ma_set1.rds") %>%
-           assign(type, value = ., envir = globalenv()),
-         ma_2 = readRDS("~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ma_set2.rds") %>%
-           assign(type, value = ., envir = globalenv()))
-
-
-}
-
-save_seurat <- function(type){
-  switch(type,
-         pbc_1 = saveRDS(pbc_1, "~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/pbc_case1.rds"),
-         pbc_2 = saveRDS(pbc_2, "~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/pbc_case2.rds"),
-         mca = saveRDS(mca,"~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/mca_liver.rds"),
-         macparland = saveRDS(macparland, "~/single_cell/single_cell_project/data/single_cell_data/GSE115469/count/macpoland.rds"),
-         aizarani = saveRDS(aizarani,"~/single_cell/single_cell_project/data/single_cell_data/GSE124395/aizarani.rds"),
-         rama_ch = save(rama_ch, "~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45nega_ch.rds"),
-         rama_ht = readRDS(rama_ht,"~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45nega_ht.rds"),
-         rama_ch_cd45 = readRDS(rama_ch_cd45,"~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45posi_ch.rds"),
-         rama_ht_cd45 = readRDS(rama_ht_cd45,"~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ramachandran_cd45posi_ht.rds"),
-         segal = readRDS(segal, "~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/segal.rds"),
-         ma_1 = readRDS(ma_1,"~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ma_set1.rds"),
-         ma_2 = readRDS(ma_2,"~/single_cell/single_cell_project/data/single_cell_data/Seurat_object/ma_set2.rds")
-  )
-
-
-
-}
 
